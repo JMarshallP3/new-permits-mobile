@@ -1,8 +1,5 @@
 Flask==3.0.0
-gunicorn==21.2.0
-selenium==4.15.0
-beautifulsoup4==4.12.2
-webdriver-manager==4.0.1
+Flask-SQLAlchemy==3.1.1
 requests==2.31.0
-python-dateutil==2.8.2
-# Updated: 2024-12-19 - Added desktop app scraping logic
+beautifulsoup4==4.12.2
+gunicorn==21.2.0
