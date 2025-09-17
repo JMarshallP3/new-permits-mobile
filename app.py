@@ -688,7 +688,105 @@ def index():
                 }
                 
                 function openCounties() {
-                    alert('County selection coming soon!');
+                    // Simple county selection modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        z-index: 2000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+                    
+                    const content = document.createElement('div');
+                    content.style.cssText = `
+                        background: var(--card-bg);
+                        padding: 20px;
+                        border-radius: 12px;
+                        max-width: 600px;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: var(--shadow);
+                        width: 90%;
+                    `;
+                    
+                    content.innerHTML = `
+                        <h3 style="margin-top: 0;">Select Counties</h3>
+                        <p>Choose which counties to monitor for permits:</p>
+                        <div id="countyList" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 10px;">
+                            Loading counties...
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="closeCounties()">Cancel</button>
+                            <button class="btn btn-success" onclick="saveCounties()">Save</button>
+                        </div>
+                    `;
+                    
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                    
+                    // Load current counties and populate list
+                    fetch('/api/get-counties')
+                        .then(response => response.json())
+                        .then(data => {
+                            const currentCounties = data.success ? data.counties : [];
+                            const countyList = document.getElementById('countyList');
+                            
+                            let html = '';
+                            const counties = """ + json.dumps(list(TEXAS_COUNTIES)) + """;
+                            
+                            counties.forEach(county => {
+                                const isSelected = currentCounties.includes(county);
+                                html += `
+                                    <div style="margin: 4px 0; display: flex; align-items: center;">
+                                        <input type="checkbox" id="county_${county}" value="${county}" 
+                                               style="margin-right: 8px; width: 18px; height: 18px;" ${isSelected ? 'checked' : ''}>
+                                        <label for="county_${county}" style="cursor: pointer; flex: 1;">${county}</label>
+                                    </div>
+                                `;
+                            });
+                            
+                            countyList.innerHTML = html;
+                        })
+                        .catch(error => {
+                            document.getElementById('countyList').innerHTML = '<p>Error loading counties: ' + error + '</p>';
+                        });
+                    
+                    window.closeCounties = () => {
+                        document.body.removeChild(modal);
+                    };
+                    
+                    window.saveCounties = () => {
+                        const selected = [];
+                        document.querySelectorAll('#countyList input:checked').forEach(cb => {
+                            selected.push(cb.value);
+                        });
+                        
+                        fetch('/api/set-counties', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({counties: selected})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Counties saved successfully!');
+                                window.location.reload();
+                            } else {
+                                alert('Error saving counties: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            alert('Error saving counties: ' + error);
+                        });
+                    };
                 }
                 
                 function showTodaysPermits() {
