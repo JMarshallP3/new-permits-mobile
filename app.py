@@ -2,6 +2,14 @@ from flask import Flask, jsonify, render_template, request
 import os
 from datetime import datetime
 import json
+import threading
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -14,46 +22,116 @@ def internal_error(error):
 def not_found(error):
     return "Not Found", 404
 
-# REAL PERMIT DATA FROM YOUR DESKTOP APP - VERSION 5.0
-def load_real_permits():
-    """Load real permit data from your desktop app files"""
+# REAL RRC SCRAPING FUNCTIONALITY
+scraped_permits = []
+last_scrape_time = None
+scraping_lock = threading.Lock()
+
+def scrape_rrc_website():
+    """Scrape real permits from RRC website like the desktop app"""
+    global scraped_permits, last_scrape_time
+    
     try:
-        # This would normally connect to your desktop app's data
-        # For now, using the real data I found in your pending_permits.json
-        real_permits = [
-            {
-                "key": "URL:https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=PISTOL%2BPETE%2B21-56-1&fromPublicQuery=Y&univDocNo=498611180",
-                "county": "LOVING",
-                "operator": "WPX ENERGY PERMIAN, LLC (942623)",
-                "lease": "PISTOL PETE 21-56-1",
-                "well": "402H",
-                "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=PISTOL%2BPETE%2B21-56-1&fromPublicQuery=Y&univDocNo=498611180",
-                "added_at": "2025-09-10T09:42:20",
-                "status": "pending"
-            },
-            {
-                "key": "URL:https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=CBR%2B16&fromPublicQuery=Y&univDocNo=498613221",
-                "county": "LOVING", 
-                "operator": "WPX ENERGY PERMIAN, LLC (942623)",
-                "lease": "CBR 16",
-                "well": "321H",
-                "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=CBR%2B16&fromPublicQuery=Y&univDocNo=498613221",
-                "added_at": "2025-09-10T10:33:39",
-                "status": "pending"
-            }
-        ]
-        return real_permits
+        print("Starting RRC website scrape...")
+        
+        # Set up Chrome options for Railway
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--window-size=1920,1080")
+        chrome_options.add_argument("--disable-web-security")
+        chrome_options.add_argument("--remote-debugging-port=9222")
+        
+        driver = webdriver.Chrome(options=chrome_options)
+        
+        try:
+            # Navigate to RRC New Permits page
+            driver.get("https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do")
+            
+            # Wait for page to load
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Look for the form and submit it to get W-1 permits
+            try:
+                # Find and click the W-1 permits link or form
+                w1_link = driver.find_element(By.PARTIAL_LINK_TEXT, "W-1")
+                w1_link.click()
+                time.sleep(3)
+            except:
+                # Try direct URL
+                driver.get("https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name%3DW-1%26fromPublicQuery%3DY")
+                time.sleep(5)
+            
+            # Parse the results
+            soup = BeautifulSoup(driver.page_source, 'html.parser')
+            
+            permits = []
+            
+            # Look for permit data in tables
+            tables = soup.find_all('table')
+            print(f"Found {len(tables)} tables on RRC page")
+            
+            for table in tables:
+                rows = table.find_all('tr')
+                for row in rows[1:]:  # Skip header row
+                    cells = row.find_all(['td', 'th'])
+                    if len(cells) >= 4:
+                        try:
+                            # Extract permit data (adjust indices based on RRC table structure)
+                            county = cells[0].get_text(strip=True).upper() if len(cells) > 0 else ""
+                            operator = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                            lease = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                            well = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                            
+                            # Look for API number or URL
+                            api_link = row.find('a', href=True)
+                            url = api_link['href'] if api_link else ""
+                            
+                            if county and operator and county in TEXAS_COUNTIES:
+                                permit_key = f"RRC-{county}-{operator}-{lease}-{well}"
+                                permits.append({
+                                    "key": permit_key,
+                                    "county": county,
+                                    "operator": operator,
+                                    "lease": lease,
+                                    "well": well,
+                                    "url": url,
+                                    "added_at": datetime.now().isoformat(),
+                                    "status": "pending",
+                                    "source": "RRC Website"
+                                })
+                        except Exception as e:
+                            print(f"Error parsing row: {e}")
+                            continue
+            
+            # Update global data
+            with scraping_lock:
+                scraped_permits = permits
+                last_scrape_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            print(f"Scraped {len(permits)} permits from RRC website")
+            
+        finally:
+            driver.quit()
+            
     except Exception as e:
-        print(f"Error loading real permits: {e}")
-        return []
+        print(f"RRC scraping error: {e}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+
+def load_real_permits():
+    """Load real permit data from RRC scraping"""
+    global scraped_permits
+    return scraped_permits
 
 def get_last_scrape_time():
-    """Get the last scrape time from your desktop app"""
-    try:
-        # This would normally read from your last_scrape.json
-        return "2025-09-11 11:03:43"
-    except:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Get the last scrape time"""
+    global last_scrape_time
+    return last_scrape_time or "Never scraped"
 
 TEXAS_COUNTIES = [
     "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN",
@@ -202,7 +280,9 @@ def api_update_counties():
 
 @app.route("/api/refresh", methods=["POST"])
 def api_refresh():
-    return jsonify({"ok": True, "message": "Refreshed successfully!"})
+    # Start scraping in background thread
+    threading.Thread(target=scrape_rrc_website, daemon=True).start()
+    return jsonify({"ok": True, "message": "Scraping started! Check back in 30 seconds."})
 
 @app.route("/api/dismiss", methods=["POST"])
 def api_dismiss():
