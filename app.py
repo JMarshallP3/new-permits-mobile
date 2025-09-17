@@ -170,38 +170,39 @@ def scrape_rrc_permits():
             # Step 3: Parse the results
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find the results table - try multiple approaches
+            # Find the results table - look for the largest table with data
+            all_tables = soup.find_all('table')
+            print(f"Found {len(all_tables)} tables on page")
+            
+            # Debug: print all tables found
+            for i, table in enumerate(all_tables):
+                rows = table.find_all('tr')
+                print(f"Table {i}: classes={table.get('class')}, id={table.get('id')}, rows={len(rows)}")
+                if len(rows) > 0:
+                    # Print first few cells of first row to identify table type
+                    first_row_cells = rows[0].find_all(['td', 'th'])
+                    cell_texts = [cell.get_text(strip=True)[:20] for cell in first_row_cells[:5]]
+                    print(f"  First row cells: {cell_texts}")
+            
+            # Find the table with the most rows (likely the main results table)
             results_table = None
+            max_rows = 0
             
-            # Try different table selectors
-            table_selectors = [
-                {'class': 'results'},
-                {'class': 'data'},
-                {'class': 'table'},
-                {'id': 'results'},
-                {'id': 'data'},
-                {}
-            ]
+            for table in all_tables:
+                rows = table.find_all('tr')
+                if len(rows) > max_rows:
+                    max_rows = len(rows)
+                    results_table = table
             
-            for selector in table_selectors:
-                results_table = soup.find('table', selector)
-                if results_table:
-                    print(f"Found table with selector: {selector}")
-                    break
-            
-            if not results_table:
-                # Debug: print all tables found
-                all_tables = soup.find_all('table')
-                print(f"Found {len(all_tables)} tables on page")
-                for i, table in enumerate(all_tables):
-                    print(f"Table {i}: classes={table.get('class')}, id={table.get('id')}")
-                
-                print("No results table found - no permits for today")
+            if not results_table or max_rows < 2:
+                print("No suitable results table found - no permits for today")
                 scraping_status['last_count'] = 0
                 scraping_status['last_run'] = datetime.utcnow()
                 return
             
-            # Parse table rows
+            print(f"Using table with {max_rows} rows as results table")
+            
+            # Parse table rows - skip header row
             rows = results_table.find_all('tr')[1:]  # Skip header row
             new_permits = []
             
@@ -218,39 +219,51 @@ def scrape_rrc_permits():
                         cell_texts = [cell.get_text(strip=True) for cell in cells]
                         print(f"Row {i}: {cell_texts}")
                     
-                    # Try different column arrangements
+                    # Extract data based on RRC table structure
+                    # RRC table columns: Status Date, Status #, API No., Operator Name/Number, Lease Name, Well #, Dist., County, Wellbore Profile, Filing Purpose, Amend, Total Depth, Stacked Lateral Parent Well DP, Current Queue
+                    
                     county = ""
                     operator = ""
                     lease_name = ""
                     well_number = ""
                     api_number = ""
                     
-                    # Look for county in any cell (usually contains county name)
-                    for cell in cells:
+                    # Look for county in any cell (usually column 8 in RRC table)
+                    for j, cell in enumerate(cells):
                         text = cell.get_text(strip=True).upper()
                         if any(county_name in text for county_name in TEXAS_COUNTIES):
                             county = text
                             break
                     
-                    # If no county found, try first column
-                    if not county and len(cells) > 0:
-                        county = cells[0].get_text(strip=True).upper()
+                    # Try to extract other fields based on typical RRC column positions
+                    if len(cells) >= 9:  # RRC table should have at least 9 columns
+                        # API Number (column 3)
+                        if len(cells) > 2:
+                            api_number = cells[2].get_text(strip=True)
+                        
+                        # Operator Name (column 4)
+                        if len(cells) > 3:
+                            operator = cells[3].get_text(strip=True)
+                        
+                        # Lease Name (column 5)
+                        if len(cells) > 4:
+                            lease_name = cells[4].get_text(strip=True)
+                        
+                        # Well Number (column 6)
+                        if len(cells) > 5:
+                            well_number = cells[5].get_text(strip=True)
+                        
+                        # County (column 8)
+                        if len(cells) > 7:
+                            county = cells[7].get_text(strip=True).upper()
                     
-                    # Try to find operator (usually company name)
-                    if len(cells) > 1:
-                        operator = cells[1].get_text(strip=True)
-                    
-                    # Try to find lease name
-                    if len(cells) > 2:
-                        lease_name = cells[2].get_text(strip=True)
-                    
-                    # Try to find well number
-                    if len(cells) > 3:
-                        well_number = cells[3].get_text(strip=True)
-                    
-                    # Try to find API number
-                    if len(cells) > 4:
-                        api_number = cells[4].get_text(strip=True)
+                    # Fallback: try to find county in any cell if not found above
+                    if not county:
+                        for cell in cells:
+                            text = cell.get_text(strip=True).upper()
+                            if any(county_name in text for county_name in TEXAS_COUNTIES):
+                                county = text
+                                break
                     
                     # Find RRC link
                     rrc_link = ""
