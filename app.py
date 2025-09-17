@@ -1,68 +1,81 @@
-from flask import Flask, jsonify, render_template, request
-import os
-from datetime import datetime
-import json
+"""
+Cloud Mobile App - Exact Desktop App Logic
+Uses the same scraping logic as your desktop app (rrc_w1_monitor.py)
+"""
+
+from flask import Flask, jsonify, request
 import threading
 import time
-import requests
+from datetime import datetime
+import json
+import os
+
+# Import scraping dependencies
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
+from dateutil import tz
+import requests
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
+app = Flask(__name__)
 
-# Add error handling
-@app.errorhandler(500)
-def internal_error(error):
-    return "Internal Server Error", 500
+# Global variables for permit data
+scraped_permits = []
+last_scrape_time = None
+scraping_lock = threading.Lock()
+dismissed_permits = set()
+selected_counties = ["ANDERSON", "HOUSTON", "LEON", "FREESTONE", "ROBERTSON", "LOVING", "CULBERSON"]
+
+# Texas counties list (from your desktop app)
+TEXAS_COUNTIES = [
+    "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN", "BAILEY", "BANDERA",
+    "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", "BOSQUE", "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER",
+    "BRISCOE", "BROOKS", "BROWN", "BURLESON", "BURNET", "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON",
+    "CASS", "CASTRO", "CHAMBERS", "CHEROKEE", "CHILDRESS", "CLAY", "COCHRAN", "COKE", "COLEMAN", "COLLIN", "COLLINGSWORTH",
+    "COLORADO", "COMAL", "COMANCHE", "CONCHO", "COOKE", "CORYELL", "COTTLE", "CRANE", "CROCKETT", "CROSBY", "CULBERSON",
+    "DALLAM", "DALLAS", "DAWSON", "DEAF SMITH", "DELTA", "DENTON", "DEWITT", "DICKENS", "DIMMIT", "DONLEY", "DUVAL",
+    "EASTLAND", "ECTOR", "EDWARDS", "EL PASO", "ELLIS", "ERATH", "FALLS", "FANNIN", "FAYETTE", "FISHER", "FLOYD", "FOARD",
+    "FORT BEND", "FRANKLIN", "FREESTONE", "FRIO", "GAINES", "GALVESTON", "GARZA", "GILLESPIE", "GLASSCOCK", "GOLIAD",
+    "GONZALES", "GRAY", "GRAYSON", "GREGG", "GRIMES", "GUADALUPE", "HALE", "HALL", "HAMILTON", "HANSFORD", "HARDEMAN",
+    "HARDIN", "HARRIS", "HARRISON", "HARTLEY", "HASKELL", "HAYS", "HEMPHILL", "HENDERSON", "HIDALGO", "HILL", "HOCKLEY",
+    "HOOD", "HOPKINS", "HOUSTON", "HOWARD", "HUDSPETH", "HUNT", "HUTCHINSON", "IRION", "JACK", "JACKSON", "JASPER",
+    "JEFF DAVIS", "JEFFERSON", "JIM HOGG", "JIM WELLS", "JOHNSON", "JONES", "KARNES", "KAUFMAN", "KENDALL", "KENEDY",
+    "KENT", "KERR", "KIMBLE", "KING", "KINNEY", "KLEBERG", "KNOX", "LA SALLE", "LAMAR", "LAMB", "LAMPASAS", "LAVACA",
+    "LEE", "LEON", "LIBERTY", "LIMESTONE", "LIPSCOMB", "LIVE OAK", "LLANO", "LOVING", "LUBBOCK", "LYNN", "MADISON",
+    "MARION", "MARTIN", "MASON", "MATAGORDA", "MAVERICK", "MCCULLOCH", "MCLENNAN", "MCMULLEN", "MEDINA", "MENARD",
+    "MIDLAND", "MILAM", "MILLS", "MITCHELL", "MONTAGUE", "MONTGOMERY", "MOORE", "MORRIS", "MOTLEY", "NACOGDOCHES",
+    "NAVARRO", "NEWTON", "NOLAN", "NUECES", "OCHILTREE", "OLDHAM", "ORANGE", "PALO PINTO", "PANOLA", "PARKER", "PARMER",
+    "PECOS", "POLK", "POTTER", "PRESIDIO", "RAINS", "RANDALL", "REAGAN", "REAL", "RED RIVER", "REEVES", "REFUGIO", "ROBERTS",
+    "ROBERTSON", "ROCKWALL", "RUNNELS", "RUSK", "SABINE", "SAN AUGUSTINE", "SAN JACINTO", "SAN PATRICIO", "SAN SABA",
+    "SCHLEICHER", "SCURRY", "SHACKELFORD", "SHELBY", "SHERMAN", "SMITH", "SOMERVELL", "STARR", "STEPHENS", "STERLING",
+    "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", "TERRELL", "TERRY", "THROCKORTON", "TITUS", "TOM GREEN",
+    "TRAVIS", "TRINITY", "TYLER", "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA", "WALKER", "WALLER",
+    "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY", "WILLIAMSON", "WILSON",
+    "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"
+]
 
 @app.errorhandler(404)
 def not_found(error):
     return "Not Found", 404
 
-# REAL RRC SCRAPING FUNCTIONALITY
-scraped_permits = []
-last_scrape_time = None
-scraping_lock = threading.Lock()
+@app.errorhandler(500)
+def internal_error(error):
+    return "Internal Server Error", 500
 
-def scrape_rrc_website():
-    """Scrape real permits from RRC website using the same logic as desktop app"""
-    global scraped_permits, last_scrape_time
-    
-    try:
-        print("Starting RRC website scrape using desktop app logic...")
-        
-        # Use the same scraping logic as your desktop app
-        scrape_like_desktop_app()
-        
-    except Exception as e:
-        print(f"RRC scraping error: {e}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-
-def load_real_permits():
-    """Load real permit data from RRC scraping"""
-    global scraped_permits
-    return scraped_permits
-
-def get_last_scrape_time():
-    """Get the last scrape time"""
-    global last_scrape_time
-    return last_scrape_time or "Never scraped"
+@app.route("/health")
+def health():
+    return jsonify({"status": "healthy", "timestamp": datetime.now().isoformat()})
 
 def scrape_like_desktop_app():
     """Use the exact same scraping logic as your desktop app"""
     global scraped_permits, last_scrape_time
     
     try:
-        from selenium.webdriver.chrome.service import Service
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.support.ui import Select
-        from dateutil import tz
-        
         print("Setting up Chrome driver like desktop app...")
         
         # Use the same Chrome setup as your desktop app
@@ -112,9 +125,8 @@ def scrape_like_desktop_app():
             begin_el.clear(); begin_el.send_keys(begin_str)
             end_el.clear();   end_el.send_keys(end_str)
             
-            # Select counties (use your default counties)
-            COUNTIES = ["ANDERSON", "HOUSTON", "LEON", "FREESTONE", "ROBERTSON", "LOVING", "CULBERSON"]
-            if COUNTIES:
+            # Select counties using selected_counties
+            if selected_counties:
                 county_select = None
                 for key in ("county","County","countyList"):
                     try: 
@@ -133,7 +145,7 @@ def scrape_like_desktop_app():
                             break
                 if county_select:
                     county_select.deselect_all()
-                    want = set(COUNTIES)
+                    want = set(selected_counties)
                     for option in county_select.options:
                         if option.text.strip().upper() in want:
                             county_select.select_by_visible_text(option.text)
@@ -254,213 +266,80 @@ def scrape_like_desktop_app():
             ]
             last_scrape_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def scrape_with_requests():
-    """Fallback scraping using requests (no Chrome needed)"""
+def scrape_rrc_website():
+    """Scrape real permits from RRC website using the same logic as desktop app"""
     global scraped_permits, last_scrape_time
     
     try:
-        print("Starting requests-based scraping...")
+        print("Starting RRC website scrape using desktop app logic...")
         
-        # Try to get RRC data using requests
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        # Try different RRC URLs
-        urls_to_try = [
-            "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name%3DW-1%26fromPublicQuery%3DY",
-            "https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do"
-        ]
-        
-        permits = []
-        
-        for url in urls_to_try:
-            try:
-                print(f"Trying URL: {url}")
-                response = requests.get(url, headers=headers, timeout=30)
-                print(f"Response status: {response.status_code}")
-                
-                if response.status_code == 200:
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    
-                    # Look for permit data in tables
-                    tables = soup.find_all('table')
-                    print(f"Found {len(tables)} tables")
-                    
-                    for table in tables:
-                        rows = table.find_all('tr')
-                        for row in rows[1:]:  # Skip header
-                            cells = row.find_all(['td', 'th'])
-                            if len(cells) >= 3:
-                                try:
-                                    county = cells[0].get_text(strip=True).upper() if len(cells) > 0 else ""
-                                    operator = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                                    lease = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-                                    well = cells[3].get_text(strip=True) if len(cells) > 3 else ""
-                                    
-                                    # Look for links
-                                    link = row.find('a', href=True)
-                                    url = link['href'] if link else ""
-                                    
-                                    if county and operator and county in TEXAS_COUNTIES:
-                                        permit_key = f"RRC-{county}-{operator}-{lease}-{well}"
-                                        permits.append({
-                                            "key": permit_key,
-                                            "county": county,
-                                            "operator": operator,
-                                            "lease": lease,
-                                            "well": well,
-                                            "url": url,
-                                            "added_at": datetime.now().isoformat(),
-                                            "status": "pending",
-                                            "source": "RRC Website (Requests)"
-                                        })
-                                except Exception as e:
-                                    print(f"Error parsing row: {e}")
-                                    continue
-                    
-                    if permits:
-                        print(f"Found {len(permits)} permits via requests")
-                        break
-                        
-            except Exception as e:
-                print(f"Error with URL {url}: {e}")
-                continue
-        
-        # If no permits found, add some realistic sample data for testing
-        if not permits:
-            print("No permits found, adding realistic sample data for testing...")
-            permits = [
-                {
-                    "key": "SAMPLE-001",
-                    "county": "HARRIS",
-                    "operator": "EXXON MOBIL CORPORATION",
-                    "lease": "BAYTOWN REFINERY UNIT",
-                    "well": "BR-001",
-                    "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=BAYTOWN&fromPublicQuery=Y&univDocNo=498614248",
-                    "added_at": datetime.now().isoformat(),
-                    "status": "pending",
-                    "source": "Sample Data (RRC Unavailable)"
-                },
-                {
-                    "key": "SAMPLE-002",
-                    "county": "TRAVIS",
-                    "operator": "CHEVRON U.S.A. INC.",
-                    "lease": "AUSTIN CHALK UNIT",
-                    "well": "AC-002",
-                    "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=AUSTIN&fromPublicQuery=Y&univDocNo=498614249",
-                    "added_at": datetime.now().isoformat(),
-                    "status": "pending",
-                    "source": "Sample Data (RRC Unavailable)"
-                },
-                {
-                    "key": "SAMPLE-003",
-                    "county": "MIDLAND",
-                    "operator": "PIONEER NATURAL RESOURCES",
-                    "lease": "PERMIAN BASIN UNIT",
-                    "well": "PB-003",
-                    "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=PERMIAN&fromPublicQuery=Y&univDocNo=498614250",
-                    "added_at": datetime.now().isoformat(),
-                    "status": "pending",
-                    "source": "Sample Data (RRC Unavailable)"
-                }
-            ]
-        
-        # Update global data
-        with scraping_lock:
-            scraped_permits = permits
-            last_scrape_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        print(f"Requests scraping completed: {len(permits)} permits")
+        # Use the same scraping logic as your desktop app
+        scrape_like_desktop_app()
         
     except Exception as e:
-        print(f"Requests scraping error: {e}")
+        print(f"RRC scraping error: {e}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
 
-TEXAS_COUNTIES = [
-    "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN",
-    "BAILEY", "BANDERA", "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", "BOSQUE",
-    "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER", "BRISCOE", "BROOKS", "BROWN", "BURLESON", "BURNET",
-    "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON", "CASS", "CASTRO", "CHAMBERS",
-    "CHEROKEE", "CHILDRESS", "CLAY", "COCHRAN", "COKE", "COLEMAN", "COLLIN", "COLLINGSWORTH", "COLORADO",
-    "COMAL", "COMANCHE", "CONCHO", "COOKE", "CORYELL", "COTTLE", "CRANE", "CROCKETT", "CROSBY", "CULBERSON",
-    "DALLAM", "DALLAS", "DAWSON", "DE WITT", "DEAF SMITH", "DELTA", "DENTON", "DICKENS", "DIMMIT", "DONLEY",
-    "DUVAL", "EASTLAND", "ECTOR", "EDWARDS", "EL PASO", "ELLIS", "ERATH", "FALLS", "FANNIN", "FAYETTE",
-    "FISHER", "FLOYD", "FOARD", "FORT BEND", "FRANKLIN", "FREESTONE", "FRIO", "GAINES", "GALVESTON", "GARZA",
-    "GILLESPIE", "GLASSCOCK", "GOLIAD", "GONZALES", "GRAY", "GRAYSON", "GREGG", "GRIMES", "GUADALUPE", "HALE",
-    "HALL", "HAMILTON", "HANSFORD", "HARDEMAN", "HARDIN", "HARRIS", "HARRISON", "HARTLEY", "HASKELL", "HAYS",
-    "HEMPHILL", "HENDERSON", "HIDALGO", "HILL", "HOCKLEY", "HOOD", "HOPKINS", "HOUSTON", "HOWARD", "HUDSPETH",
-    "HUNT", "HUTCHINSON", "IRION", "JACK", "JACKSON", "JASPER", "JEFF DAVIS", "JEFFERSON", "JIM HOGG", "JIM WELLS",
-    "JOHNSON", "JONES", "KARNES", "KAUFMAN", "KENDALL", "KENEDY", "KENT", "KERR", "KIMBLE", "KING",
-    "KINNEY", "KLEBERG", "KNOX", "LA SALLE", "LAMAR", "LAMB", "LAMPASAS", "LAVACA", "LEE", "LEON",
-    "LIBERTY", "LIMESTONE", "LIPSCOMB", "LIVE OAK", "LLANO", "LOVING", "LUBBOCK", "LYNN", "MADISON", "MARION",
-    "MARTIN", "MASON", "MATAGORDA", "MAVERICK", "MCCULLOCH", "MCLENNAN", "MCMULLEN", "MEDINA", "MENARD", "MIDLAND",
-    "MILAM", "MILLS", "MITCHELL", "MONTAGUE", "MONTGOMERY", "MOORE", "MORRIS", "MOTLEY", "NACOGDOCHES", "NAVARRO",
-    "NEWTON", "NOLAN", "NUECES", "OCHILTREE", "OLDHAM", "ORANGE", "PALO PINTO", "PANOLA", "PARKER", "PARMER",
-    "PECOS", "POLK", "POTTER", "PRESIDIO", "RAINS", "RANDALL", "REAGAN", "REAL", "RED RIVER", "REEVES",
-    "REFUGIO", "ROBERTS", "ROBERTSON", "ROCKWALL", "RUNNELS", "RUSK", "SABINE", "SAN AUGUSTINE", "SAN JACINTO", "SAN PATRICIO",
-    "SAN SABA", "SCHLEICHER", "SCURRY", "SHACKELFORD", "SHELBY", "SHERMAN", "SMITH", "SOMERVELL", "STARR", "STEPHENS",
-    "STERLING", "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", "TERRELL", "TERRY", "THROCKMORTON", "TITUS",
-    "TOM GREEN", "TRAVIS", "TRINITY", "TYLER", "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA",
-    "WALKER", "WALLER", "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY",
-    "WILLIAMSON", "WILSON", "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"
-]
+def load_real_permits():
+    """Load real permit data from RRC scraping"""
+    global scraped_permits
+    return scraped_permits
 
-# In-memory storage for dismissed permits
-dismissed_permits = set()
+def get_last_scrape_time():
+    """Get the last scrape time"""
+    global last_scrape_time
+    return last_scrape_time or "Never scraped"
 
-# Health check route
-@app.route("/health")
-def health():
-    return jsonify({"status": "ok", "message": "App is running"})
+@app.route("/api/refresh", methods=["GET", "POST"])
+def api_refresh():
+    threading.Thread(target=scrape_rrc_website, daemon=True).start()
+    return jsonify({"ok": True, "message": "Scraping started! Check back in 30 seconds."})
 
-# Simple HTML route without templates
-@app.route("/simple")
-def simple():
-    real_permits = load_real_permits()
-    active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    
-    html = f"""
-    <html>
-    <head><title>New Permits - Real Data</title></head>
-    <body>
-        <h1>📋 New Permits - Real Data</h1>
-        <p>Last Update: {get_last_scrape_time()}</p>
-        <h2>Your Real Permits:</h2>
-    """
-    
-    for permit in active_permits:
-        html += f"""
-        <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
-            <h3>{permit.get('county', 'UNKNOWN')} County</h3>
-            <p><strong>Operator:</strong> {permit.get('operator', 'N/A')}</p>
-            <p><strong>Lease:</strong> {permit.get('lease', 'N/A')}</p>
-            <p><strong>Well:</strong> {permit.get('well', 'N/A')}</p>
-            <p><strong>Added:</strong> {permit.get('added_at', 'N/A')}</p>
-            <a href="{permit.get('url', '#')}" target="_blank">Open Permit</a>
-        </div>
-        """
-    
-    html += "</body></html>"
-    return html
+@app.route("/api/dismiss", methods=["POST"])
+def api_dismiss():
+    try:
+        data = request.get_json()
+        key = data.get('key')
+        if key:
+            dismissed_permits.add(key)
+            return jsonify({"success": True})
+        return jsonify({"success": False, "error": "No key provided"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/clear-all", methods=["POST"])
+def api_clear_all():
+    try:
+        global scraped_permits
+        for permit in scraped_permits:
+            dismissed_permits.add(permit["key"])
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/set-counties", methods=["POST"])
+def api_set_counties():
+    try:
+        global selected_counties
+        data = request.get_json()
+        counties = data.get('counties', [])
+        selected_counties = [c.upper() for c in counties]
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route("/")
 def index():
     try:
-        # Load REAL permit data from your desktop app
         real_permits = load_real_permits()
-        
-        # Filter out dismissed permits
         active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
         
-        # Group permits by county
         by_county = {}
         for permit in active_permits:
             county = permit.get("county", "UNKNOWN")
             by_county.setdefault(county, []).append(permit)
         
-        # Sort counties
         for k in by_county:
             by_county[k] = sorted(
                 by_county[k],
@@ -471,7 +350,7 @@ def index():
                 )
             )
         
-        # Return mobile-friendly HTML with iPhone optimization and dark/light toggle
+        # Return desktop app style HTML
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -485,16 +364,20 @@ def index():
                     --bg-color: #f8f9fa;
                     --card-bg: #ffffff;
                     --text-color: #212529;
-                    --header-bg: #007bff;
+                    --header-bg: #6c757d;
                     --border-color: #dee2e6;
                     --shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    --primary-color: #007bff;
+                    --success-color: #28a745;
+                    --danger-color: #dc3545;
+                    --info-color: #17a2b8;
                 }}
                 
                 [data-theme="dark"] {{
                     --bg-color: #1a1a1a;
                     --card-bg: #2d2d2d;
                     --text-color: #ffffff;
-                    --header-bg: #0056b3;
+                    --header-bg: #495057;
                     --border-color: #404040;
                     --shadow: 0 2px 8px rgba(0,0,0,0.3);
                 }}
@@ -512,7 +395,7 @@ def index():
                 }}
                 
                 .container {{ 
-                    max-width: 100%;
+                    max-width: 1200px;
                     margin: 0 auto;
                     padding: 0 16px;
                 }}
@@ -522,9 +405,6 @@ def index():
                     color: white; 
                     padding: 20px 16px;
                     margin-bottom: 20px;
-                    position: sticky;
-                    top: 0;
-                    z-index: 100;
                 }}
                 
                 .header h1 {{ 
@@ -541,47 +421,70 @@ def index():
                 }}
                 
                 .btn {{ 
-                    background: rgba(255,255,255,0.2); 
-                    color: white; 
                     padding: 10px 16px; 
                     border: none; 
-                    border-radius: 8px; 
+                    border-radius: 6px; 
                     cursor: pointer; 
                     font-size: 14px;
                     font-weight: 500;
                     transition: all 0.2s ease;
+                    text-decoration: none;
+                    display: inline-block;
                     -webkit-tap-highlight-color: transparent;
                 }}
                 
-                .btn:hover {{ 
-                    background: rgba(255,255,255,0.3); 
-                    transform: translateY(-1px);
+                .btn-primary {{ background: var(--primary-color); color: white; }}
+                .btn-info {{ background: var(--info-color); color: white; }}
+                .btn-success {{ background: var(--success-color); color: white; }}
+                .btn-danger {{ background: var(--danger-color); color: white; }}
+                .btn-secondary {{ background: #6c757d; color: white; }}
+                
+                .btn:hover {{ opacity: 0.9; transform: translateY(-1px); }}
+                .btn:active {{ transform: translateY(0); }}
+                
+                .county-section {{
+                    margin: 20px 0;
+                    background: var(--card-bg);
+                    border-radius: 12px;
+                    box-shadow: var(--shadow);
+                    border: 1px solid var(--border-color);
+                    overflow: hidden;
                 }}
                 
-                .btn:active {{ 
-                    transform: translateY(0);
+                .county-header {{
+                    background: var(--primary-color);
+                    color: white;
+                    padding: 15px 20px;
+                    font-weight: 600;
+                    font-size: 18px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                
+                .county-count {{
+                    background: rgba(255,255,255,0.2);
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 14px;
                 }}
                 
                 .permit {{ 
-                    background: var(--card-bg); 
-                    margin: 12px 0; 
-                    padding: 16px; 
-                    border-radius: 12px; 
-                    box-shadow: var(--shadow);
-                    border: 1px solid var(--border-color);
+                    padding: 20px;
+                    border-bottom: 1px solid var(--border-color);
                 }}
                 
-                .county {{ 
-                    font-weight: 600; 
-                    color: var(--header-bg); 
-                    font-size: 18px; 
-                    margin-bottom: 8px;
+                .permit:last-child {{ border-bottom: none; }}
+                
+                .permit-info {{
+                    margin-bottom: 15px;
                 }}
                 
                 .operator {{ 
                     font-weight: 600; 
-                    margin: 8px 0; 
+                    margin-bottom: 8px; 
                     font-size: 16px;
+                    color: var(--text-color);
                 }}
                 
                 .lease, .well {{ 
@@ -591,24 +494,9 @@ def index():
                     font-size: 14px;
                 }}
                 
-                .url {{ 
-                    margin-top: 12px; 
-                }}
-                
-                .url a {{ 
-                    background: var(--header-bg); 
-                    color: white; 
-                    padding: 10px 16px; 
-                    text-decoration: none; 
-                    border-radius: 8px; 
-                    display: inline-block;
-                    font-weight: 500;
-                    transition: all 0.2s ease;
-                }}
-                
-                .url a:hover {{ 
-                    opacity: 0.9;
-                    transform: translateY(-1px);
+                .permit-buttons {{
+                    display: flex;
+                    gap: 10px;
                 }}
                 
                 .status {{ 
@@ -635,7 +523,7 @@ def index():
                     width: 50px;
                     height: 50px;
                     border-radius: 50%;
-                    background: var(--header-bg);
+                    background: var(--primary-color);
                     color: white;
                     border: none;
                     font-size: 20px;
@@ -644,7 +532,34 @@ def index():
                     z-index: 1000;
                 }}
                 
-                @media (max-width: 480px) {{
+                .county-selector {{
+                    background: var(--card-bg);
+                    padding: 20px;
+                    border-radius: 12px;
+                    margin: 20px 0;
+                    border: 1px solid var(--border-color);
+                    box-shadow: var(--shadow);
+                }}
+                
+                .county-checkboxes {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 10px;
+                    margin-top: 15px;
+                }}
+                
+                .county-checkbox {{
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }}
+                
+                .county-checkbox input[type="checkbox"] {{
+                    width: 18px;
+                    height: 18px;
+                }}
+                
+                @media (max-width: 768px) {{
                     .header-controls {{
                         flex-direction: column;
                     }}
@@ -652,6 +567,14 @@ def index():
                     .btn {{
                         width: 100%;
                         text-align: center;
+                    }}
+                    
+                    .permit-buttons {{
+                        flex-direction: column;
+                    }}
+                    
+                    .county-checkboxes {{
+                        grid-template-columns: 1fr;
                     }}
                 }}
             </style>
@@ -662,8 +585,11 @@ def index():
                     <h1>📋 New Permits</h1>
                     <p style="margin: 0; opacity: 0.9;">Last Update: {get_last_scrape_time()}</p>
                     <div class="header-controls">
-                        <button class="btn" onclick="refreshPermits()">🔄 Refresh/Scrape RRC</button>
-                        <button class="btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+                        <button class="btn btn-primary" onclick="openCounties()">📍 Counties</button>
+                        <button class="btn btn-info" onclick="refreshPermits()">🔄 Update</button>
+                        <button class="btn btn-success" onclick="showTodaysPermits()">📅 Today's Permits</button>
+                        <button class="btn btn-danger" onclick="clearAll()">🗑️ Clear All</button>
+                        <button class="btn btn-secondary" onclick="toggleTheme()">🌙 Dark Mode</button>
                     </div>
                 </div>
             </div>
@@ -676,23 +602,33 @@ def index():
         
         if active_permits:
             for county, permits in sorted(by_county.items()):
-                html += f'<h2 class="county">{county} County ({len(permits)} permits)</h2>'
+                html += f"""
+                <div class="county-section">
+                    <div class="county-header">
+                        <span>🔍 {county}</span>
+                        <span class="county-count">{len(permits)} permits</span>
+                    </div>
+                """
                 for permit in permits:
                     html += f"""
                     <div class="permit">
-                        <div class="operator">{permit.get('operator', 'N/A')}</div>
-                        <div class="lease">Lease: {permit.get('lease', 'N/A')}</div>
-                        <div class="well">Well: {permit.get('well', 'N/A')}</div>
-                        <div class="url">
-                            <a href="{permit.get('url', '#')}" target="_blank">Open RRC Permit</a>
+                        <div class="permit-info">
+                            <div class="operator">{permit.get('operator', 'N/A')}</div>
+                            <div class="lease">Lease: {permit.get('lease', 'N/A')}</div>
+                            <div class="well">Well: {permit.get('well', 'N/A')}</div>
+                        </div>
+                        <div class="permit-buttons">
+                            <button class="btn btn-info" onclick="openPermit('{permit.get('url', '#')}')">🌐 Open Permit</button>
+                            <button class="btn btn-danger" onclick="dismissPermit('{permit.get('key', '')}')">❌ Dismiss</button>
                         </div>
                     </div>
                     """
+                html += "</div>"
         else:
             html += """
             <div class="no-permits">
                 <h3>No permits found</h3>
-                <p>Click "Refresh/Scrape RRC" to start scraping the RRC website.</p>
+                <p>Click "Update" to start scraping the RRC website.</p>
                 <p>This may take 30-60 seconds to complete.</p>
             </div>
             """
@@ -717,6 +653,147 @@ def index():
                         });
                 }
                 
+                function openPermit(url) {
+                    if (url && url !== '#') {
+                        window.open(url, '_blank');
+                    } else {
+                        alert('No URL available for this permit');
+                    }
+                }
+                
+                function dismissPermit(key) {
+                    if (confirm('Are you sure you want to dismiss this permit?')) {
+                        fetch('/api/dismiss', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({key: key})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                window.location.reload();
+                            } else {
+                                alert('Error dismissing permit: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            alert('Error dismissing permit: ' + error);
+                        });
+                    }
+                }
+                
+                function clearAll() {
+                    if (confirm('Are you sure you want to clear all permits? This will dismiss all current permits.')) {
+                        fetch('/api/clear-all', {
+                            method: 'POST'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                window.location.reload();
+                            } else {
+                                alert('Error clearing permits: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            alert('Error clearing permits: ' + error);
+                        });
+                    }
+                }
+                
+                function openCounties() {
+                    // Show county selection modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        z-index: 2000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+                    
+                    const content = document.createElement('div');
+                    content.style.cssText = `
+                        background: var(--card-bg);
+                        padding: 20px;
+                        border-radius: 12px;
+                        max-width: 600px;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: var(--shadow);
+                    `;
+                    
+                    content.innerHTML = `
+                        <h3>Select Counties</h3>
+                        <p>Choose which counties to monitor for permits:</p>
+                        <div class="county-checkboxes" id="countyCheckboxes">
+                            <!-- Counties will be populated here -->
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px;">
+                            <button class="btn btn-primary" onclick="saveCounties()">Save</button>
+                            <button class="btn btn-secondary" onclick="closeCounties()">Cancel</button>
+                        </div>
+                    `;
+                    
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                    
+                    // Populate counties
+                    const counties = ['ANDERSON', 'HOUSTON', 'LEON', 'FREESTONE', 'ROBERTSON', 'LOVING', 'CULBERSON', 'HARRIS', 'TRAVIS', 'MIDLAND', 'WEBB', 'TARRANT', 'DALLAS', 'BEXAR', 'FORT BEND', 'COLLIN', 'DENTON', 'MONTGOMERY', 'WILLIAMSON', 'BRAZORIA', 'GALVESTON', 'JEFFERSON', 'NUECES', 'CAMERON', 'HIDALGO', 'STARR', 'WEBB', 'ZAPATA', 'JIM HOGG', 'BROOKS', 'DUVAL', 'JIM WELLS', 'KLEBERG', 'LA SALLE', 'MCMULLEN', 'REAL', 'UVALDE', 'VAL VERDE', 'ZAVALA'];
+                    const checkboxes = document.getElementById('countyCheckboxes');
+                    
+                    counties.forEach(county => {
+                        const div = document.createElement('div');
+                        div.className = 'county-checkbox';
+                        div.innerHTML = `
+                            <input type="checkbox" id="county_${county}" value="${county}">
+                            <label for="county_${county}">${county}</label>
+                        `;
+                        checkboxes.appendChild(div);
+                    });
+                    
+                    window.closeCounties = () => {
+                        document.body.removeChild(modal);
+                    };
+                    
+                    window.saveCounties = () => {
+                        const selected = [];
+                        document.querySelectorAll('#countyCheckboxes input:checked').forEach(cb => {
+                            selected.push(cb.value);
+                        });
+                        
+                        fetch('/api/set-counties', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({counties: selected})
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                window.location.reload();
+                            } else {
+                                alert('Error saving counties: ' + data.error);
+                            }
+                        })
+                        .catch(error => {
+                            alert('Error saving counties: ' + error);
+                        });
+                    };
+                }
+                
+                function showTodaysPermits() {
+                    alert('Today\\'s Permits feature coming soon!');
+                }
+                
                 function toggleTheme() {
                     const body = document.body;
                     const currentTheme = body.getAttribute('data-theme');
@@ -726,11 +803,9 @@ def index():
                     const themeBtn = document.querySelector('.theme-toggle');
                     themeBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
                     
-                    // Save theme preference
                     localStorage.setItem('theme', newTheme);
                 }
                 
-                // Load saved theme
                 document.addEventListener('DOMContentLoaded', function() {
                     const savedTheme = localStorage.getItem('theme') || 'light';
                     document.body.setAttribute('data-theme', savedTheme);
@@ -746,59 +821,6 @@ def index():
     except Exception as e:
         return f"Error loading permits: {str(e)}", 500
 
-@app.route("/api/permits")
-def api_permits():
-    # Load REAL permit data from your desktop app
-    real_permits = load_real_permits()
-    
-    # Filter out dismissed permits
-    active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    
-    # Group permits by county
-    by_county = {}
-    for permit in active_permits:
-        county = permit.get("county", "UNKNOWN")
-        by_county.setdefault(county, []).append(permit)
-    
-    return jsonify({
-        "permits": active_permits,
-        "by_county": by_county,
-        "last_update": get_last_scrape_time(),
-        "selected_counties": ["LOVING"]  # Your real data is in LOVING county
-    })
-
-@app.route("/api/counties")
-def api_counties():
-    return jsonify(TEXAS_COUNTIES)
-
-@app.route("/api/counties", methods=["POST"])
-def api_update_counties():
-    return jsonify({"ok": True, "message": "Counties updated"})
-
-@app.route("/api/refresh", methods=["GET", "POST"])
-def api_refresh():
-    # Start scraping in background thread
-    threading.Thread(target=scrape_rrc_website, daemon=True).start()
-    return jsonify({"ok": True, "message": "Scraping started! Check back in 30 seconds."})
-
-@app.route("/api/dismiss", methods=["POST"])
-def api_dismiss():
-    data = request.get_json() or {}
-    key = data.get("key")
-    if key:
-        dismissed_permits.add(key)
-        return jsonify({"ok": True, "message": "Permit dismissed!"})
-    return jsonify({"ok": False, "message": "No key provided"})
-
-@app.route("/api/undismiss", methods=["POST"])
-def api_undismiss():
-    data = request.get_json() or {}
-    key = data.get("key")
-    if key:
-        dismissed_permits.discard(key)
-        return jsonify({"ok": True, "message": "Permit undismissed!"})
-    return jsonify({"ok": False, "message": "No key provided"})
-
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 8000))  # Railway auto-detect will set the correct port
-    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
