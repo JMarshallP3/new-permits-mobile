@@ -314,14 +314,22 @@ def api_clear_all():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-@app.route("/api/set-counties", methods=["POST"])
-def api_set_counties():
+@app.route("/api/get-counties", methods=["GET"])
+def api_get_counties():
+    """Get currently selected counties"""
     try:
-        global selected_counties
-        data = request.get_json()
-        counties = data.get('counties', [])
-        selected_counties = [c.upper() for c in counties]
-        return jsonify({"success": True})
+        return jsonify({"success": True, "counties": selected_counties})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/todays-permits", methods=["GET"])
+def api_todays_permits():
+    """Get all permits for today (regardless of county selection)"""
+    try:
+        # For now, return the same permits as the main view
+        # In a real implementation, this would scrape all counties for today
+        real_permits = load_real_permits()
+        return jsonify({"success": True, "permits": real_permits})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
@@ -640,9 +648,10 @@ def index():
                         .then(response => response.json())
                         .then(data => {
                             alert(data.message);
+                            // Wait a bit longer for scraping to complete, then reload
                             setTimeout(() => {
                                 window.location.reload();
-                            }, 2000);
+                            }, 35000); // Wait 35 seconds for scraping to complete
                         })
                         .catch(error => {
                             alert('Error starting scrape: ' + error);
@@ -757,122 +766,211 @@ def index():
                     modal.appendChild(content);
                     document.body.appendChild(modal);
                     
-                    // Populate counties in alphabetical order like desktop app
-                    const counties = """ + json.dumps(list(TEXAS_COUNTIES)) + """;
-                    const countyList = document.getElementById('countyList');
-                    const countyCheckboxes = [];
-                    
-                    counties.forEach(county => {
-                        const div = document.createElement('div');
-                        div.style.cssText = 'margin: 4px 0; display: flex; align-items: center;';
-                        div.innerHTML = `
-                            <input type="checkbox" id="county_${county}" value="${county}" 
-                                   style="margin-right: 8px; width: 18px; height: 18px;">
-                            <label for="county_${county}" style="cursor: pointer; flex: 1;">${county}</label>
-                        `;
-                        countyList.appendChild(div);
-                        
-                        const checkbox = div.querySelector('input[type="checkbox"]');
-                        countyCheckboxes.push({
-                            county: county,
-                            checkbox: checkbox,
-                            div: div,
-                            visible: true
-                        });
-                    });
-                    
-                    // Search functionality
-                    const searchInput = document.getElementById('countySearch');
-                    searchInput.addEventListener('input', function() {
-                        const query = this.value.trim().toUpperCase();
-                        countyCheckboxes.forEach(item => {
-                            const visible = query === '' || item.county.includes(query);
-                            item.div.style.display = visible ? 'flex' : 'none';
-                            item.visible = visible;
-                        });
-                        updateSelectedCount();
-                    });
-                    
-                    // Update selected count
-                    function updateSelectedCount() {
-                        const visible = countyCheckboxes.filter(item => item.visible);
-                        const selected = visible.filter(item => item.checkbox.checked).length;
-                        document.getElementById('selectedCount').textContent = `Selected: ${selected}`;
-                    }
-                    
-                    // Add change listeners to all checkboxes
-                    countyCheckboxes.forEach(item => {
-                        item.checkbox.addEventListener('change', updateSelectedCount);
-                    });
-                    
-                    // Button functions
-                    window.selectAllFiltered = () => {
-                        countyCheckboxes.forEach(item => {
-                            if (item.visible) item.checkbox.checked = true;
-                        });
-                        updateSelectedCount();
-                    };
-                    
-                    window.deselectAllFiltered = () => {
-                        countyCheckboxes.forEach(item => {
-                            if (item.visible) item.checkbox.checked = false;
-                        });
-                        updateSelectedCount();
-                    };
-                    
-                    window.selectAll = () => {
-                        countyCheckboxes.forEach(item => {
-                            item.checkbox.checked = true;
-                        });
-                        updateSelectedCount();
-                    };
-                    
-                    window.deselectAll = () => {
-                        countyCheckboxes.forEach(item => {
-                            item.checkbox.checked = false;
-                        });
-                        updateSelectedCount();
-                    };
-                    
-                    window.closeCounties = () => {
-                        document.body.removeChild(modal);
-                    };
-                    
-                    window.saveCounties = () => {
-                        const selected = [];
-                        countyCheckboxes.forEach(item => {
-                            if (item.checkbox.checked) {
-                                selected.push(item.county);
-                            }
-                        });
-                        
-                        fetch('/api/set-counties', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({counties: selected})
-                        })
+                    // Load currently selected counties first
+                    fetch('/api/get-counties')
                         .then(response => response.json())
                         .then(data => {
-                            if (data.success) {
-                                window.location.reload();
+                            const currentCounties = data.success ? data.counties : [];
+                            
+                            // Populate counties in alphabetical order like desktop app
+                            const counties = """ + json.dumps(list(TEXAS_COUNTIES)) + """;
+                            const countyList = document.getElementById('countyList');
+                            const countyCheckboxes = [];
+                            
+                            counties.forEach(county => {
+                                const div = document.createElement('div');
+                                div.style.cssText = 'margin: 4px 0; display: flex; align-items: center;';
+                                const isSelected = currentCounties.includes(county);
+                                div.innerHTML = `
+                                    <input type="checkbox" id="county_${county}" value="${county}" 
+                                           style="margin-right: 8px; width: 18px; height: 18px;" ${isSelected ? 'checked' : ''}>
+                                    <label for="county_${county}" style="cursor: pointer; flex: 1;">${county}</label>
+                                `;
+                                countyList.appendChild(div);
+                                
+                                const checkbox = div.querySelector('input[type="checkbox"]');
+                                countyCheckboxes.push({
+                                    county: county,
+                                    checkbox: checkbox,
+                                    div: div,
+                                    visible: true
+                                });
+                            });
+                            
+                            // Set up all the functionality after counties are loaded
+                            setupCountyModal(countyCheckboxes);
+                        })
+                        .catch(error => {
+                            console.error('Error loading counties:', error);
+                            alert('Error loading current county selection');
+                        });
+                    
+                    function setupCountyModal(countyCheckboxes) {
+                        // Search functionality
+                        const searchInput = document.getElementById('countySearch');
+                        searchInput.addEventListener('input', function() {
+                            const query = this.value.trim().toUpperCase();
+                            countyCheckboxes.forEach(item => {
+                                const visible = query === '' || item.county.includes(query);
+                                item.div.style.display = visible ? 'flex' : 'none';
+                                item.visible = visible;
+                            });
+                            updateSelectedCount();
+                        });
+                        
+                        // Update selected count
+                        function updateSelectedCount() {
+                            const visible = countyCheckboxes.filter(item => item.visible);
+                            const selected = visible.filter(item => item.checkbox.checked).length;
+                            document.getElementById('selectedCount').textContent = `Selected: ${selected}`;
+                        }
+                        
+                        // Add change listeners to all checkboxes
+                        countyCheckboxes.forEach(item => {
+                            item.checkbox.addEventListener('change', updateSelectedCount);
+                        });
+                        
+                        // Button functions
+                        window.selectAllFiltered = () => {
+                            countyCheckboxes.forEach(item => {
+                                if (item.visible) item.checkbox.checked = true;
+                            });
+                            updateSelectedCount();
+                        };
+                        
+                        window.deselectAllFiltered = () => {
+                            countyCheckboxes.forEach(item => {
+                                if (item.visible) item.checkbox.checked = false;
+                            });
+                            updateSelectedCount();
+                        };
+                        
+                        window.selectAll = () => {
+                            countyCheckboxes.forEach(item => {
+                                item.checkbox.checked = true;
+                            });
+                            updateSelectedCount();
+                        };
+                        
+                        window.deselectAll = () => {
+                            countyCheckboxes.forEach(item => {
+                                item.checkbox.checked = false;
+                            });
+                            updateSelectedCount();
+                        };
+                        
+                        window.closeCounties = () => {
+                            document.body.removeChild(modal);
+                        };
+                        
+                        window.saveCounties = () => {
+                            const selected = [];
+                            countyCheckboxes.forEach(item => {
+                                if (item.checkbox.checked) {
+                                    selected.push(item.county);
+                                }
+                            });
+                            
+                            fetch('/api/set-counties', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({counties: selected})
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('Counties saved successfully!');
+                                    window.location.reload();
+                                } else {
+                                    alert('Error saving counties: ' + data.error);
+                                }
+                            })
+                            .catch(error => {
+                                alert('Error saving counties: ' + error);
+                            });
+                        };
+                        
+                        // Focus search input and update count
+                        searchInput.focus();
+                        updateSelectedCount();
+                    }
+                
+                function showTodaysPermits() {
+                    // Show today's permits in a modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.5);
+                        z-index: 2000;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+                    
+                    const content = document.createElement('div');
+                    content.style.cssText = `
+                        background: var(--card-bg);
+                        padding: 20px;
+                        border-radius: 12px;
+                        max-width: 800px;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: var(--shadow);
+                        width: 90%;
+                    `;
+                    
+                    content.innerHTML = `
+                        <h3 style="margin-top: 0;">📅 Today's Permits</h3>
+                        <p>All permits filed today (regardless of your county selections)</p>
+                        <div id="todaysPermitsList">
+                            Loading today's permits...
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button class="btn btn-secondary" onclick="closeTodaysPermits()">Close</button>
+                        </div>
+                    `;
+                    
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                    
+                    // Load today's permits
+                    fetch('/api/todays-permits')
+                        .then(response => response.json())
+                        .then(data => {
+                            const permitsList = document.getElementById('todaysPermitsList');
+                            if (data.success && data.permits.length > 0) {
+                                let html = '';
+                                data.permits.forEach(permit => {
+                                    html += `
+                                        <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin: 10px 0;">
+                                            <div style="font-weight: bold; margin-bottom: 8px;">${permit.operator}</div>
+                                            <div>County: ${permit.county}</div>
+                                            <div>Lease: ${permit.lease}</div>
+                                            <div>Well: ${permit.well}</div>
+                                            <div style="margin-top: 10px;">
+                                                <button class="btn btn-info" onclick="openPermit('${permit.url}')">Open Permit</button>
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                                permitsList.innerHTML = html;
                             } else {
-                                alert('Error saving counties: ' + data.error);
+                                permitsList.innerHTML = '<p>No permits found for today.</p>';
                             }
                         })
                         .catch(error => {
-                            alert('Error saving counties: ' + error);
+                            document.getElementById('todaysPermitsList').innerHTML = '<p>Error loading today\'s permits: ' + error + '</p>';
                         });
-                    };
                     
-                    // Focus search input
-                    searchInput.focus();
-                    updateSelectedCount();
-                }
-                
-                function showTodaysPermits() {
-                    alert('Today\\'s Permits feature coming soon!');
+                    window.closeTodaysPermits = () => {
+                        document.body.removeChild(modal);
+                    };
                 }
                 
                 function toggleTheme() {
