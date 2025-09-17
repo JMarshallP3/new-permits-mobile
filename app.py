@@ -31,33 +31,41 @@ scraping_lock = threading.Lock()
 dismissed_permits = set()
 selected_counties = ["ANDERSON", "HOUSTON", "LEON", "FREESTONE", "ROBERTSON", "LOVING", "CULBERSON"]
 
-# Texas counties list (from your desktop app)
-TEXAS_COUNTIES = [
-    "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN", "BAILEY", "BANDERA",
-    "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", "BOSQUE", "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER",
-    "BRISCOE", "BROOKS", "BROWN", "BURLESON", "BURNET", "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON",
-    "CASS", "CASTRO", "CHAMBERS", "CHEROKEE", "CHILDRESS", "CLAY", "COCHRAN", "COKE", "COLEMAN", "COLLIN", "COLLINGSWORTH",
-    "COLORADO", "COMAL", "COMANCHE", "CONCHO", "COOKE", "CORYELL", "COTTLE", "CRANE", "CROCKETT", "CROSBY", "CULBERSON",
-    "DALLAM", "DALLAS", "DAWSON", "DEAF SMITH", "DELTA", "DENTON", "DEWITT", "DICKENS", "DIMMIT", "DONLEY", "DUVAL",
-    "EASTLAND", "ECTOR", "EDWARDS", "EL PASO", "ELLIS", "ERATH", "FALLS", "FANNIN", "FAYETTE", "FISHER", "FLOYD", "FOARD",
-    "FORT BEND", "FRANKLIN", "FREESTONE", "FRIO", "GAINES", "GALVESTON", "GARZA", "GILLESPIE", "GLASSCOCK", "GOLIAD",
-    "GONZALES", "GRAY", "GRAYSON", "GREGG", "GRIMES", "GUADALUPE", "HALE", "HALL", "HAMILTON", "HANSFORD", "HARDEMAN",
-    "HARDIN", "HARRIS", "HARRISON", "HARTLEY", "HASKELL", "HAYS", "HEMPHILL", "HENDERSON", "HIDALGO", "HILL", "HOCKLEY",
-    "HOOD", "HOPKINS", "HOUSTON", "HOWARD", "HUDSPETH", "HUNT", "HUTCHINSON", "IRION", "JACK", "JACKSON", "JASPER",
-    "JEFF DAVIS", "JEFFERSON", "JIM HOGG", "JIM WELLS", "JOHNSON", "JONES", "KARNES", "KAUFMAN", "KENDALL", "KENEDY",
-    "KENT", "KERR", "KIMBLE", "KING", "KINNEY", "KLEBERG", "KNOX", "LA SALLE", "LAMAR", "LAMB", "LAMPASAS", "LAVACA",
-    "LEE", "LEON", "LIBERTY", "LIMESTONE", "LIPSCOMB", "LIVE OAK", "LLANO", "LOVING", "LUBBOCK", "LYNN", "MADISON",
-    "MARION", "MARTIN", "MASON", "MATAGORDA", "MAVERICK", "MCCULLOCH", "MCLENNAN", "MCMULLEN", "MEDINA", "MENARD",
-    "MIDLAND", "MILAM", "MILLS", "MITCHELL", "MONTAGUE", "MONTGOMERY", "MOORE", "MORRIS", "MOTLEY", "NACOGDOCHES",
-    "NAVARRO", "NEWTON", "NOLAN", "NUECES", "OCHILTREE", "OLDHAM", "ORANGE", "PALO PINTO", "PANOLA", "PARKER", "PARMER",
-    "PECOS", "POLK", "POTTER", "PRESIDIO", "RAINS", "RANDALL", "REAGAN", "REAL", "RED RIVER", "REEVES", "REFUGIO", "ROBERTS",
-    "ROBERTSON", "ROCKWALL", "RUNNELS", "RUSK", "SABINE", "SAN AUGUSTINE", "SAN JACINTO", "SAN PATRICIO", "SAN SABA",
-    "SCHLEICHER", "SCURRY", "SHACKELFORD", "SHELBY", "SHERMAN", "SMITH", "SOMERVELL", "STARR", "STEPHENS", "STERLING",
-    "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", "TERRELL", "TERRY", "THROCKORTON", "TITUS", "TOM GREEN",
-    "TRAVIS", "TRINITY", "TYLER", "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA", "WALKER", "WALLER",
-    "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY", "WILLIAMSON", "WILSON",
-    "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"
-]
+# Texas counties list (exact copy from your desktop app)
+TEXAS_COUNTIES = tuple(sorted([
+    "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN", 
+    "BAILEY", "BANDERA", "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", 
+    "BOSQUE", "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER", "BRISCOE", "BROOKS", "BROWN", 
+    "BURLESON", "BURNET", "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON", 
+    "CASS", "CASTRO", "CHAMBERS", "CHEROKEE", "CHILDRESS", "CLAY", "COCHRAN", "COKE", 
+    "COLEMAN", "COLLIN", "COLLINGSWORTH", "COLORADO", "COMAL", "COMANCHE", "CONCHO", 
+    "COOKE", "CORYELL", "COTTLE", "CRANE", "CROCKETT", "CROSBY", "CULBERSON", "DALLAM", 
+    "DALLAS", "DAWSON", "DEAF SMITH", "DELTA", "DENTON", "DE WITT", "DICKENS", "DIMMIT", 
+    "DONLEY", "DUVAL", "EASTLAND", "ECTOR", "EDWARDS", "ELLIS", "EL PASO", "ERATH", 
+    "FALLS", "FANNIN", "FAYETTE", "FISHER", "FLOYD", "FOARD", "FORT BEND", "FRANKLIN", 
+    "FREESTONE", "FRIO", "GAINES", "GALVESTON", "GARZA", "GILLESPIE", "GLASSCOCK", 
+    "GOLIAD", "GONZALES", "GRAY", "GRAYSON", "GREGG", "GRIMES", "GUADALUPE", "HALE", 
+    "HALL", "HAMILTON", "HANSFORD", "HARDEMAN", "HARDIN", "HARRIS", "HARRISON", "HARTLEY", 
+    "HASKELL", "HAYS", "HEMPHILL", "HENDERSON", "HIDALGO", "HILL", "HOCKLEY", "HOOD", 
+    "HOPKINS", "HOUSTON", "HOWARD", "HUDSPETH", "HUNT", "HUTCHINSON", "IRION", "JACK", 
+    "JACKSON", "JASPER", "JEFF DAVIS", "JEFFERSON", "JIM HOGG", "JIM WELLS", "JOHNSON", 
+    "JONES", "KARNES", "KAUFMAN", "KENDALL", "KENEDY", "KENT", "KERR", "KIMBLE", "KING", 
+    "KINNEY", "KLEBERG", "KNOX", "LA SALLE", "LAMAR", "LAMB", "LAMPASAS", "LAVACA", 
+    "LEE", "LEON", "LIBERTY", "LIMESTONE", "LIPSCOMB", "LIVE OAK", "LLANO", "LOVING", 
+    "LUBBOCK", "LYNN", "MADISON", "MARION", "MARTIN", "MASON", "MATAGORDA", "MAVERICK", 
+    "MCCULLOCH", "MCLENNAN", "MCMULLEN", "MEDINA", "MENARD", "MIDLAND", "MILAM", "MILLS", 
+    "MITCHELL", "MONTAGUE", "MONTGOMERY", "MOORE", "MORRIS", "MOTLEY", "NACOGDOCHES", 
+    "NAVARRO", "NEWTON", "NOLAN", "NUECES", "OCHILTREE", "OLDHAM", "ORANGE", "PALO PINTO", 
+    "PANOLA", "PARKER", "PARMER", "PECOS", "POLK", "POTTER", "PRESIDIO", "RAINS", "RANDALL", 
+    "REAGAN", "REAL", "RED RIVER", "REEVES", "REFUGIO", "ROBERTS", "ROBERTSON", "ROCKWALL", 
+    "RUNNELS", "RUSK", "SABINE", "SAN AUGUSTINE", "SAN JACINTO", "SAN PATRICIO", "SAN SABA", 
+    "SCHLEICHER", "SCURRY", "SHACKELFORD", "SHELBY", "SHERMAN", "SMITH", "SOMERVELL", 
+    "STARR", "STEPHENS", "STERLING", "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", 
+    "TERRELL", "TERRY", "THROCKORTON", "TITUS", "TOM GREEN", "TRAVIS", "TRINITY", "TYLER", 
+    "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA", "WALKER", "WALLER", 
+    "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY", 
+    "WILLIAMSON", "WILSON", "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"
+]))
 
 @app.errorhandler(404)
 def not_found(error):
@@ -249,21 +257,9 @@ def scrape_like_desktop_app():
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         
-        # If desktop logic fails, fall back to sample data
+        # If desktop logic fails, show no permits (no fake data)
         with scraping_lock:
-            scraped_permits = [
-                {
-                    "key": "FALLBACK-001",
-                    "county": "HARRIS",
-                    "operator": "EXXON MOBIL CORPORATION",
-                    "lease": "BAYTOWN REFINERY UNIT",
-                    "well": "BR-001",
-                    "url": "https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do",
-                    "added_at": datetime.now().isoformat(),
-                    "status": "pending",
-                    "source": "Fallback Data (Desktop Logic Failed)"
-                }
-            ]
+            scraped_permits = []
             last_scrape_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 def scrape_rrc_website():
@@ -704,7 +700,7 @@ def index():
                 }
                 
                 function openCounties() {
-                    // Show county selection modal
+                    // Show county selection modal exactly like desktop app
                     const modal = document.createElement('div');
                     modal.style.cssText = `
                         position: fixed;
@@ -728,36 +724,115 @@ def index():
                         max-height: 80vh;
                         overflow-y: auto;
                         box-shadow: var(--shadow);
+                        width: 90%;
+                        max-width: 600px;
                     `;
                     
                     content.innerHTML = `
-                        <h3>Select Counties</h3>
-                        <p>Choose which counties to monitor for permits:</p>
-                        <div class="county-checkboxes" id="countyCheckboxes">
+                        <h3 style="margin-top: 0;">Select Counties</h3>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                            <input type="text" id="countySearch" placeholder="Search counties..." 
+                                   style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;">
+                            <button class="btn btn-info" onclick="selectAllFiltered()">Select All (filtered)</button>
+                            <button class="btn btn-secondary" onclick="deselectAllFiltered()">Deselect All (filtered)</button>
+                            <button class="btn btn-primary" onclick="selectAll()">Select ALL</button>
+                            <button class="btn btn-danger" onclick="deselectAll()">Deselect ALL</button>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px; text-align: right;">
+                            <span id="selectedCount" style="font-weight: bold;">Selected: 0</span>
+                        </div>
+                        
+                        <div id="countyList" style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 4px; padding: 10px;">
                             <!-- Counties will be populated here -->
                         </div>
-                        <div style="margin-top: 20px; display: flex; gap: 10px;">
-                            <button class="btn btn-primary" onclick="saveCounties()">Save</button>
+                        
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
                             <button class="btn btn-secondary" onclick="closeCounties()">Cancel</button>
+                            <button class="btn btn-success" onclick="saveCounties()">Save</button>
                         </div>
                     `;
                     
                     modal.appendChild(content);
                     document.body.appendChild(modal);
                     
-                    // Populate counties
-                    const counties = ['ANDERSON', 'HOUSTON', 'LEON', 'FREESTONE', 'ROBERTSON', 'LOVING', 'CULBERSON', 'HARRIS', 'TRAVIS', 'MIDLAND', 'WEBB', 'TARRANT', 'DALLAS', 'BEXAR', 'FORT BEND', 'COLLIN', 'DENTON', 'MONTGOMERY', 'WILLIAMSON', 'BRAZORIA', 'GALVESTON', 'JEFFERSON', 'NUECES', 'CAMERON', 'HIDALGO', 'STARR', 'WEBB', 'ZAPATA', 'JIM HOGG', 'BROOKS', 'DUVAL', 'JIM WELLS', 'KLEBERG', 'LA SALLE', 'MCMULLEN', 'REAL', 'UVALDE', 'VAL VERDE', 'ZAVALA'];
-                    const checkboxes = document.getElementById('countyCheckboxes');
+                    // Populate counties in alphabetical order like desktop app
+                    const counties = ${list(TEXAS_COUNTIES)};
+                    const countyList = document.getElementById('countyList');
+                    const countyCheckboxes = [];
                     
                     counties.forEach(county => {
                         const div = document.createElement('div');
-                        div.className = 'county-checkbox';
+                        div.style.cssText = 'margin: 4px 0; display: flex; align-items: center;';
                         div.innerHTML = `
-                            <input type="checkbox" id="county_${county}" value="${county}">
-                            <label for="county_${county}">${county}</label>
+                            <input type="checkbox" id="county_${county}" value="${county}" 
+                                   style="margin-right: 8px; width: 18px; height: 18px;">
+                            <label for="county_${county}" style="cursor: pointer; flex: 1;">${county}</label>
                         `;
-                        checkboxes.appendChild(div);
+                        countyList.appendChild(div);
+                        
+                        const checkbox = div.querySelector('input[type="checkbox"]');
+                        countyCheckboxes.push({
+                            county: county,
+                            checkbox: checkbox,
+                            div: div,
+                            visible: true
+                        });
                     });
+                    
+                    // Search functionality
+                    const searchInput = document.getElementById('countySearch');
+                    searchInput.addEventListener('input', function() {
+                        const query = this.value.trim().toUpperCase();
+                        countyCheckboxes.forEach(item => {
+                            const visible = query === '' || item.county.includes(query);
+                            item.div.style.display = visible ? 'flex' : 'none';
+                            item.visible = visible;
+                        });
+                        updateSelectedCount();
+                    });
+                    
+                    // Update selected count
+                    function updateSelectedCount() {
+                        const visible = countyCheckboxes.filter(item => item.visible);
+                        const selected = visible.filter(item => item.checkbox.checked).length;
+                        document.getElementById('selectedCount').textContent = `Selected: ${selected}`;
+                    }
+                    
+                    // Add change listeners to all checkboxes
+                    countyCheckboxes.forEach(item => {
+                        item.checkbox.addEventListener('change', updateSelectedCount);
+                    });
+                    
+                    // Button functions
+                    window.selectAllFiltered = () => {
+                        countyCheckboxes.forEach(item => {
+                            if (item.visible) item.checkbox.checked = true;
+                        });
+                        updateSelectedCount();
+                    };
+                    
+                    window.deselectAllFiltered = () => {
+                        countyCheckboxes.forEach(item => {
+                            if (item.visible) item.checkbox.checked = false;
+                        });
+                        updateSelectedCount();
+                    };
+                    
+                    window.selectAll = () => {
+                        countyCheckboxes.forEach(item => {
+                            item.checkbox.checked = true;
+                        });
+                        updateSelectedCount();
+                    };
+                    
+                    window.deselectAll = () => {
+                        countyCheckboxes.forEach(item => {
+                            item.checkbox.checked = false;
+                        });
+                        updateSelectedCount();
+                    };
                     
                     window.closeCounties = () => {
                         document.body.removeChild(modal);
@@ -765,8 +840,10 @@ def index():
                     
                     window.saveCounties = () => {
                         const selected = [];
-                        document.querySelectorAll('#countyCheckboxes input:checked').forEach(cb => {
-                            selected.push(cb.value);
+                        countyCheckboxes.forEach(item => {
+                            if (item.checkbox.checked) {
+                                selected.push(item.county);
+                            }
                         });
                         
                         fetch('/api/set-counties', {
@@ -788,6 +865,10 @@ def index():
                             alert('Error saving counties: ' + error);
                         });
                     };
+                    
+                    // Focus search input
+                    searchInput.focus();
+                    updateSelectedCount();
                 }
                 
                 function showTodaysPermits() {
