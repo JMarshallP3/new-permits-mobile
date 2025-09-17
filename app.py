@@ -226,36 +226,207 @@ def index():
                 )
             )
         
-        # Return mobile-friendly HTML directly (no templates needed)
+        # Return mobile-friendly HTML with iPhone optimization and dark/light toggle
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <title>New Permits - RRC Scraper</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="default">
             <style>
-                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
-                .header {{ background: #007bff; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
-                .permit {{ background: white; margin: 10px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-                .county {{ font-weight: bold; color: #007bff; font-size: 18px; }}
-                .operator {{ font-weight: bold; margin: 5px 0; }}
-                .lease, .well {{ margin: 3px 0; color: #666; }}
-                .url {{ margin-top: 10px; }}
-                .url a {{ background: #007bff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; }}
-                .refresh {{ background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }}
-                .status {{ background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+                :root {{
+                    --bg-color: #f8f9fa;
+                    --card-bg: #ffffff;
+                    --text-color: #212529;
+                    --header-bg: #007bff;
+                    --border-color: #dee2e6;
+                    --shadow: 0 2px 8px rgba(0,0,0,0.1);
+                }}
+                
+                [data-theme="dark"] {{
+                    --bg-color: #1a1a1a;
+                    --card-bg: #2d2d2d;
+                    --text-color: #ffffff;
+                    --header-bg: #0056b3;
+                    --border-color: #404040;
+                    --shadow: 0 2px 8px rgba(0,0,0,0.3);
+                }}
+                
+                * {{ box-sizing: border-box; }}
+                
+                body {{ 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    margin: 0; 
+                    padding: 0;
+                    background: var(--bg-color);
+                    color: var(--text-color);
+                    line-height: 1.6;
+                    -webkit-font-smoothing: antialiased;
+                }}
+                
+                .container {{ 
+                    max-width: 100%;
+                    margin: 0 auto;
+                    padding: 0 16px;
+                }}
+                
+                .header {{ 
+                    background: var(--header-bg); 
+                    color: white; 
+                    padding: 20px 16px;
+                    margin-bottom: 20px;
+                    position: sticky;
+                    top: 0;
+                    z-index: 100;
+                }}
+                
+                .header h1 {{ 
+                    margin: 0 0 10px 0; 
+                    font-size: 24px;
+                    font-weight: 600;
+                }}
+                
+                .header-controls {{
+                    display: flex;
+                    gap: 10px;
+                    flex-wrap: wrap;
+                    margin-top: 15px;
+                }}
+                
+                .btn {{ 
+                    background: rgba(255,255,255,0.2); 
+                    color: white; 
+                    padding: 10px 16px; 
+                    border: none; 
+                    border-radius: 8px; 
+                    cursor: pointer; 
+                    font-size: 14px;
+                    font-weight: 500;
+                    transition: all 0.2s ease;
+                    -webkit-tap-highlight-color: transparent;
+                }}
+                
+                .btn:hover {{ 
+                    background: rgba(255,255,255,0.3); 
+                    transform: translateY(-1px);
+                }}
+                
+                .btn:active {{ 
+                    transform: translateY(0);
+                }}
+                
+                .permit {{ 
+                    background: var(--card-bg); 
+                    margin: 12px 0; 
+                    padding: 16px; 
+                    border-radius: 12px; 
+                    box-shadow: var(--shadow);
+                    border: 1px solid var(--border-color);
+                }}
+                
+                .county {{ 
+                    font-weight: 600; 
+                    color: var(--header-bg); 
+                    font-size: 18px; 
+                    margin-bottom: 8px;
+                }}
+                
+                .operator {{ 
+                    font-weight: 600; 
+                    margin: 8px 0; 
+                    font-size: 16px;
+                }}
+                
+                .lease, .well {{ 
+                    margin: 4px 0; 
+                    color: var(--text-color);
+                    opacity: 0.8;
+                    font-size: 14px;
+                }}
+                
+                .url {{ 
+                    margin-top: 12px; 
+                }}
+                
+                .url a {{ 
+                    background: var(--header-bg); 
+                    color: white; 
+                    padding: 10px 16px; 
+                    text-decoration: none; 
+                    border-radius: 8px; 
+                    display: inline-block;
+                    font-weight: 500;
+                    transition: all 0.2s ease;
+                }}
+                
+                .url a:hover {{ 
+                    opacity: 0.9;
+                    transform: translateY(-1px);
+                }}
+                
+                .status {{ 
+                    background: var(--card-bg); 
+                    padding: 16px; 
+                    border-radius: 12px; 
+                    margin: 16px 0; 
+                    border: 1px solid var(--border-color);
+                    box-shadow: var(--shadow);
+                }}
+                
+                .no-permits {{ 
+                    text-align: center; 
+                    padding: 40px 20px;
+                    background: var(--card-bg);
+                    border-radius: 12px;
+                    border: 1px solid var(--border-color);
+                }}
+                
+                .theme-toggle {{
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 50%;
+                    background: var(--header-bg);
+                    color: white;
+                    border: none;
+                    font-size: 20px;
+                    cursor: pointer;
+                    box-shadow: var(--shadow);
+                    z-index: 1000;
+                }}
+                
+                @media (max-width: 480px) {{
+                    .header-controls {{
+                        flex-direction: column;
+                    }}
+                    
+                    .btn {{
+                        width: 100%;
+                        text-align: center;
+                    }}
+                }}
             </style>
         </head>
-        <body>
+        <body data-theme="light">
             <div class="header">
-                <h1>📋 New Permits - RRC Scraper</h1>
-                <p>Last Update: {get_last_scrape_time()}</p>
-                <button class="refresh" onclick="window.location.href='/api/refresh'">🔄 Refresh/Scrape RRC</button>
+                <div class="container">
+                    <h1>📋 New Permits</h1>
+                    <p style="margin: 0; opacity: 0.9;">Last Update: {get_last_scrape_time()}</p>
+                    <div class="header-controls">
+                        <button class="btn" onclick="refreshPermits()">🔄 Refresh/Scrape RRC</button>
+                        <button class="btn" onclick="toggleTheme()">🌙 Dark Mode</button>
+                    </div>
+                </div>
             </div>
             
-            <div class="status">
-                <strong>Status:</strong> {len(active_permits)} permits found
-            </div>
+            <div class="container">
+                <div class="status">
+                    <strong>Status:</strong> {len(active_permits)} permits found
+                </div>
         """
         
         if active_permits:
@@ -274,7 +445,7 @@ def index():
                     """
         else:
             html += """
-            <div class="permit">
+            <div class="no-permits">
                 <h3>No permits found</h3>
                 <p>Click "Refresh/Scrape RRC" to start scraping the RRC website.</p>
                 <p>This may take 30-60 seconds to complete.</p>
@@ -282,6 +453,46 @@ def index():
             """
         
         html += """
+            </div>
+            
+            <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+            
+            <script>
+                function refreshPermits() {
+                    fetch('/api/refresh')
+                        .then(response => response.json())
+                        .then(data => {
+                            alert(data.message);
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        })
+                        .catch(error => {
+                            alert('Error starting scrape: ' + error);
+                        });
+                }
+                
+                function toggleTheme() {
+                    const body = document.body;
+                    const currentTheme = body.getAttribute('data-theme');
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    body.setAttribute('data-theme', newTheme);
+                    
+                    const themeBtn = document.querySelector('.theme-toggle');
+                    themeBtn.textContent = newTheme === 'light' ? '🌙' : '☀️';
+                    
+                    // Save theme preference
+                    localStorage.setItem('theme', newTheme);
+                }
+                
+                // Load saved theme
+                document.addEventListener('DOMContentLoaded', function() {
+                    const savedTheme = localStorage.getItem('theme') || 'light';
+                    document.body.setAttribute('data-theme', savedTheme);
+                    const themeBtn = document.querySelector('.theme-toggle');
+                    themeBtn.textContent = savedTheme === 'light' ? '🌙' : '☀️';
+                });
+            </script>
         </body>
         </html>
         """
@@ -319,7 +530,7 @@ def api_counties():
 def api_update_counties():
     return jsonify({"ok": True, "message": "Counties updated"})
 
-@app.route("/api/refresh", methods=["POST"])
+@app.route("/api/refresh", methods=["GET", "POST"])
 def api_refresh():
     # Start scraping in background thread
     threading.Thread(target=scrape_rrc_website, daemon=True).start()
