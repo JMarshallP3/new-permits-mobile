@@ -1,16 +1,12 @@
 from flask import Flask, jsonify, render_template, request
 import os
 from datetime import datetime
-import json
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
 # REAL PERMIT DATA FROM YOUR DESKTOP APP - VERSION 5.0
 def load_real_permits():
-    """Load real permit data from your desktop app files"""
     try:
-        # This would normally connect to your desktop app's data
-        # For now, using the real data I found in your pending_permits.json
         real_permits = [
             {
                 "key": "URL:https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=PISTOL%2BPETE%2B21-56-1&fromPublicQuery=Y&univDocNo=498611180",
@@ -24,7 +20,7 @@ def load_real_permits():
             },
             {
                 "key": "URL:https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name=CBR%2B16&fromPublicQuery=Y&univDocNo=498613221",
-                "county": "LOVING", 
+                "county": "LOVING",
                 "operator": "WPX ENERGY PERMIAN, LLC (942623)",
                 "lease": "CBR 16",
                 "well": "321H",
@@ -39,15 +35,12 @@ def load_real_permits():
         return []
 
 def get_last_scrape_time():
-    """Get the last scrape time from your desktop app"""
     try:
-        # This would normally read from your last_scrape.json
         return "2025-09-11 11:03:43"
     except:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-TEXAS_COUNTIES = [
-    "ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN",
+TEXAS_COUNTIES = ["ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN",
     "BAILEY", "BANDERA", "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", "BOSQUE",
     "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER", "BRISCOE", "BROOKS", "BROWN", "BURLESON", "BURNET",
     "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON", "CASS", "CASTRO", "CHAMBERS",
@@ -72,27 +65,18 @@ TEXAS_COUNTIES = [
     "STERLING", "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", "TERRELL", "TERRY", "THROCKMORTON", "TITUS",
     "TOM GREEN", "TRAVIS", "TRINITY", "TYLER", "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA",
     "WALKER", "WALLER", "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY",
-    "WILLIAMSON", "WILSON", "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"
-]
+    "WILLIAMSON", "WILSON", "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"]
 
-# In-memory storage for dismissed permits
 dismissed_permits = set()
 
 @app.route("/")
 def index():
-    # Load REAL permit data from your desktop app
     real_permits = load_real_permits()
-    
-    # Filter out dismissed permits
     active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    
-    # Group permits by county
     by_county = {}
     for permit in active_permits:
         county = permit.get("county", "UNKNOWN")
         by_county.setdefault(county, []).append(permit)
-    
-    # Sort counties
     for k in by_county:
         by_county[k] = sorted(
             by_county[k],
@@ -102,7 +86,6 @@ def index():
                 (it.get("well") or "").upper()
             )
         )
-    
     return render_template(
         "index.html",
         by_county=sorted(by_county.items()),
@@ -110,29 +93,23 @@ def index():
         token="real-data-token",
         build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         data_dir="cloud",
-        selected_counties=["LOVING"],  # Your real data is in LOVING county
+        selected_counties=["LOVING"],
         all_counties=TEXAS_COUNTIES,
     )
 
 @app.route("/api/permits")
 def api_permits():
-    # Load REAL permit data from your desktop app
     real_permits = load_real_permits()
-    
-    # Filter out dismissed permits
     active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    
-    # Group permits by county
     by_county = {}
     for permit in active_permits:
         county = permit.get("county", "UNKNOWN")
         by_county.setdefault(county, []).append(permit)
-    
     return jsonify({
         "permits": active_permits,
         "by_county": by_county,
         "last_update": get_last_scrape_time(),
-        "selected_counties": ["LOVING"]  # Your real data is in LOVING county
+        "selected_counties": ["LOVING"]
     })
 
 @app.route("/api/counties")
@@ -166,5 +143,5 @@ def api_undismiss():
     return jsonify({"ok": False, "message": "No key provided"})
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get("PORT", 5000))  # 5000 for local dev, Railway sets PORT in prod
     app.run(host="0.0.0.0", port=port, debug=False)
