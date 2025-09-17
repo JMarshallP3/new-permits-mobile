@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
 import os
 from datetime import datetime
 
@@ -41,62 +41,25 @@ def get_last_scrape_time():
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 TEXAS_COUNTIES = ["ANDERSON", "ANDREWS", "ANGELINA", "ARANSAS", "ARCHER", "ARMSTRONG", "ATASCOSA", "AUSTIN",
-    "BAILEY", "BANDERA", "BASTROP", "BAYLOR", "BEE", "BELL", "BEXAR", "BLANCO", "BORDEN", "BOSQUE",
-    "BOWIE", "BRAZORIA", "BRAZOS", "BREWSTER", "BRISCOE", "BROOKS", "BROWN", "BURLESON", "BURNET",
-    "CALDWELL", "CALHOUN", "CALLAHAN", "CAMERON", "CAMP", "CARSON", "CASS", "CASTRO", "CHAMBERS",
-    "CHEROKEE", "CHILDRESS", "CLAY", "COCHRAN", "COKE", "COLEMAN", "COLLIN", "COLLINGSWORTH", "COLORADO",
-    "COMAL", "COMANCHE", "CONCHO", "COOKE", "CORYELL", "COTTLE", "CRANE", "CROCKETT", "CROSBY", "CULBERSON",
-    "DALLAM", "DALLAS", "DAWSON", "DE WITT", "DEAF SMITH", "DELTA", "DENTON", "DICKENS", "DIMMIT", "DONLEY",
-    "DUVAL", "EASTLAND", "ECTOR", "EDWARDS", "EL PASO", "ELLIS", "ERATH", "FALLS", "FANNIN", "FAYETTE",
-    "FISHER", "FLOYD", "FOARD", "FORT BEND", "FRANKLIN", "FREESTONE", "FRIO", "GAINES", "GALVESTON", "GARZA",
-    "GILLESPIE", "GLASSCOCK", "GOLIAD", "GONZALES", "GRAY", "GRAYSON", "GREGG", "GRIMES", "GUADALUPE", "HALE",
-    "HALL", "HAMILTON", "HANSFORD", "HARDEMAN", "HARDIN", "HARRIS", "HARRISON", "HARTLEY", "HASKELL", "HAYS",
-    "HEMPHILL", "HENDERSON", "HIDALGO", "HILL", "HOCKLEY", "HOOD", "HOPKINS", "HOUSTON", "HOWARD", "HUDSPETH",
-    "HUNT", "HUTCHINSON", "IRION", "JACK", "JACKSON", "JASPER", "JEFF DAVIS", "JEFFERSON", "JIM HOGG", "JIM WELLS",
-    "JOHNSON", "JONES", "KARNES", "KAUFMAN", "KENDALL", "KENEDY", "KENT", "KERR", "KIMBLE", "KING",
-    "KINNEY", "KLEBERG", "KNOX", "LA SALLE", "LAMAR", "LAMB", "LAMPASAS", "LAVACA", "LEE", "LEON",
-    "LIBERTY", "LIMESTONE", "LIPSCOMB", "LIVE OAK", "LLANO", "LOVING", "LUBBOCK", "LYNN", "MADISON", "MARION",
-    "MARTIN", "MASON", "MATAGORDA", "MAVERICK", "MCCULLOCH", "MCLENNAN", "MCMULLEN", "MEDINA", "MENARD", "MIDLAND",
-    "MILAM", "MILLS", "MITCHELL", "MONTAGUE", "MONTGOMERY", "MOORE", "MORRIS", "MOTLEY", "NACOGDOCHES", "NAVARRO",
-    "NEWTON", "NOLAN", "NUECES", "OCHILTREE", "OLDHAM", "ORANGE", "PALO PINTO", "PANOLA", "PARKER", "PARMER",
-    "PECOS", "POLK", "POTTER", "PRESIDIO", "RAINS", "RANDALL", "REAGAN", "REAL", "RED RIVER", "REEVES",
-    "REFUGIO", "ROBERTS", "ROBERTSON", "ROCKWALL", "RUNNELS", "RUSK", "SABINE", "SAN AUGUSTINE", "SAN JACINTO", "SAN PATRICIO",
-    "SAN SABA", "SCHLEICHER", "SCURRY", "SHACKELFORD", "SHELBY", "SHERMAN", "SMITH", "SOMERVELL", "STARR", "STEPHENS",
-    "STERLING", "STONEWALL", "SUTTON", "SWISHER", "TARRANT", "TAYLOR", "TERRELL", "TERRY", "THROCKMORTON", "TITUS",
-    "TOM GREEN", "TRAVIS", "TRINITY", "TYLER", "UPSHUR", "UPTON", "UVALDE", "VAL VERDE", "VAN ZANDT", "VICTORIA",
-    "WALKER", "WALLER", "WARD", "WASHINGTON", "WEBB", "WHARTON", "WHEELER", "WICHITA", "WILBARGER", "WILLACY",
-    "WILLIAMSON", "WILSON", "WINKLER", "WISE", "WOOD", "YOAKUM", "YOUNG", "ZAPATA", "ZAVALA"]
+    # … (rest unchanged, keep your big list here)
+    "ZAPATA", "ZAVALA"]
 
 dismissed_permits = set()
 
+# -------------------------------
+# TEST ROUTES (no templates yet)
+# -------------------------------
 @app.route("/")
 def index():
-    real_permits = load_real_permits()
-    active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    by_county = {}
-    for permit in active_permits:
-        county = permit.get("county", "UNKNOWN")
-        by_county.setdefault(county, []).append(permit)
-    for k in by_county:
-        by_county[k] = sorted(
-            by_county[k],
-            key=lambda it: (
-                (it.get("operator") or "").upper(),
-                (it.get("lease") or "").upper(),
-                (it.get("well") or "").upper()
-            )
-        )
-    return render_template(
-        "index.html",
-        by_county=sorted(by_county.items()),
-        last=get_last_scrape_time(),
-        token="real-data-token",
-        build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        data_dir="cloud",
-        selected_counties=["LOVING"],
-        all_counties=TEXAS_COUNTIES,
-    )
+    return "✅ App is running on Railway", 200
 
+@app.route("/health")
+def health():
+    return "ok", 200
+
+# -------------------------------
+# KEEP your APIs
+# -------------------------------
 @app.route("/api/permits")
 def api_permits():
     real_permits = load_real_permits()
@@ -142,6 +105,10 @@ def api_undismiss():
         return jsonify({"ok": True, "message": "Permit undismissed!"})
     return jsonify({"ok": False, "message": "No key provided"})
 
+# -------------------------------
+# ENTRYPOINT
+# -------------------------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # 5000 for local dev, Railway sets PORT in prod
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
