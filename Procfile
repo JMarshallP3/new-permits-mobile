@@ -1,2 +1,2 @@
-web: python app.py
-# Updated: 2024-12-19
+web: gunicorn app:app
+# Updated: 2024-12-19 - Using production server
