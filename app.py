@@ -100,68 +100,133 @@ def scrape_rrc_permits():
     try:
         print("Starting RRC permit scraping...")
         
-        # Get today's date
-        today = date.today()
-        
-        # Set up session with headers
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
-        
-        # For now, add sample data to test the app
-        sample_permits = [
-            Permit(
-                county="HARRIS",
-                operator="EXXON MOBIL CORPORATION",
-                lease_name="BAYTOWN REFINERY UNIT",
-                well_number="BR-001",
-                api_number="42-201-12345",
-                date_issued=today,
-                rrc_link="https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do"
-            ),
-            Permit(
-                county="TRAVIS",
-                operator="CHEVRON U.S.A. INC.",
-                lease_name="AUSTIN CHALK UNIT",
-                well_number="AC-002",
-                api_number="42-453-67890",
-                date_issued=today,
-                rrc_link="https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do"
-            ),
-            Permit(
-                county="MIDLAND",
-                operator="PIONEER NATURAL RESOURCES",
-                lease_name="PERMIAN BASIN UNIT",
-                well_number="PB-003",
-                api_number="42-483-11111",
-                date_issued=today,
-                rrc_link="https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do"
-            )
-        ]
-        
-        # Check which permits are new
-        new_permits = []
-        for permit in sample_permits:
-            existing = Permit.query.filter_by(
-                county=permit.county,
-                operator=permit.operator,
-                lease_name=permit.lease_name,
-                well_number=permit.well_number,
-                date_issued=permit.date_issued
-            ).first()
+        # Create application context for database operations
+        with app.app_context():
+            # Get today's date
+            today = date.today()
             
-            if not existing:
-                new_permits.append(permit)
-        
-        # Save new permits to database
-        if new_permits:
-            db.session.add_all(new_permits)
-            db.session.commit()
-            print(f"Added {len(new_permits)} new permits")
-        
-        scraping_status['last_count'] = len(new_permits)
-        scraping_status['last_run'] = datetime.utcnow()
+            # Set up session with headers
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            })
+            
+            # Real RRC scraping logic
+            RRC_BASE_URL = "https://webapps.rrc.state.tx.us"
+            RRC_SEARCH_URL = f"{RRC_BASE_URL}/DP/initializePublicQueryAction.do"
+            
+            # Step 1: Get the initial search page
+            response = session.get(RRC_SEARCH_URL)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Step 2: Find and fill the search form
+            form = soup.find('form')
+            if not form:
+                raise Exception("Could not find search form on RRC website")
+            
+            form_action = form.get('action', '')
+            if form_action.startswith('/'):
+                form_url = f"{RRC_BASE_URL}{form_action}"
+            else:
+                form_url = f"{RRC_BASE_URL}/DP/{form_action}"
+            
+            # Prepare form data
+            form_data = {}
+            
+            # Find all input fields
+            for input_field in form.find_all('input'):
+                name = input_field.get('name')
+                value = input_field.get('value', '')
+                if name:
+                    form_data[name] = value
+            
+            # Set date range to today
+            date_str = today.strftime('%m/%d/%Y')
+            form_data['submittedDateBegin'] = date_str
+            form_data['submittedDateEnd'] = date_str
+            
+            # Submit the form
+            response = session.post(form_url, data=form_data)
+            response.raise_for_status()
+            
+            # Step 3: Parse the results
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Find the results table
+            results_table = soup.find('table', {'class': 'results'}) or soup.find('table')
+            
+            if not results_table:
+                print("No results table found - no permits for today")
+                scraping_status['last_count'] = 0
+                scraping_status['last_run'] = datetime.utcnow()
+                return
+            
+            # Parse table rows
+            rows = results_table.find_all('tr')[1:]  # Skip header row
+            new_permits = []
+            
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                if len(cells) < 4:
+                    continue
+                
+                try:
+                    # Extract permit data (adjust indices based on actual table structure)
+                    county = cells[0].get_text(strip=True).upper() if len(cells) > 0 else ""
+                    operator = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                    lease_name = cells[2].get_text(strip=True) if len(cells) > 2 else ""
+                    well_number = cells[3].get_text(strip=True) if len(cells) > 3 else ""
+                    api_number = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                    
+                    # Find RRC link
+                    rrc_link = ""
+                    link_element = row.find('a', href=True)
+                    if link_element:
+                        href = link_element['href']
+                        if href.startswith('/'):
+                            rrc_link = f"{RRC_BASE_URL}{href}"
+                        else:
+                            rrc_link = href
+                    
+                    # Validate data
+                    if county and operator and lease_name and well_number:
+                        # Check if permit already exists
+                        existing = Permit.query.filter_by(
+                            county=county,
+                            operator=operator,
+                            lease_name=lease_name,
+                            well_number=well_number,
+                            date_issued=today
+                        ).first()
+                        
+                        if not existing:
+                            permit = Permit(
+                                county=county,
+                                operator=operator,
+                                lease_name=lease_name,
+                                well_number=well_number,
+                                api_number=api_number,
+                                date_issued=today,
+                                rrc_link=rrc_link
+                            )
+                            new_permits.append(permit)
+                            
+                except Exception as e:
+                    print(f"Error parsing row: {e}")
+                    continue
+            
+            # Save new permits to database
+            if new_permits:
+                db.session.add_all(new_permits)
+                db.session.commit()
+                print(f"Added {len(new_permits)} new permits from RRC website")
+            else:
+                print("No new permits found for today")
+            
+            scraping_status['last_count'] = len(new_permits)
+            scraping_status['last_run'] = datetime.utcnow()
         
     except Exception as e:
         print(f"Scraping error: {e}")
