@@ -147,6 +147,22 @@ def scrape_rrc_permits():
             form_data['submittedDateBegin'] = date_str
             form_data['submittedDateEnd'] = date_str
             
+            # Try different form field names that RRC might use
+            possible_date_fields = [
+                'submittedDateBegin', 'submittedDateEnd',
+                'dateBegin', 'dateEnd',
+                'beginDate', 'endDate',
+                'fromDate', 'toDate',
+                'startDate', 'stopDate'
+            ]
+            
+            for field in possible_date_fields:
+                if field in form_data:
+                    if 'begin' in field.lower() or 'start' in field.lower() or 'from' in field.lower():
+                        form_data[field] = date_str
+                    elif 'end' in field.lower() or 'stop' in field.lower() or 'to' in field.lower():
+                        form_data[field] = date_str
+            
             # Submit the form
             response = session.post(form_url, data=form_data)
             response.raise_for_status()
@@ -154,10 +170,32 @@ def scrape_rrc_permits():
             # Step 3: Parse the results
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find the results table
-            results_table = soup.find('table', {'class': 'results'}) or soup.find('table')
+            # Find the results table - try multiple approaches
+            results_table = None
+            
+            # Try different table selectors
+            table_selectors = [
+                {'class': 'results'},
+                {'class': 'data'},
+                {'class': 'table'},
+                {'id': 'results'},
+                {'id': 'data'},
+                {}
+            ]
+            
+            for selector in table_selectors:
+                results_table = soup.find('table', selector)
+                if results_table:
+                    print(f"Found table with selector: {selector}")
+                    break
             
             if not results_table:
+                # Debug: print all tables found
+                all_tables = soup.find_all('table')
+                print(f"Found {len(all_tables)} tables on page")
+                for i, table in enumerate(all_tables):
+                    print(f"Table {i}: classes={table.get('class')}, id={table.get('id')}")
+                
                 print("No results table found - no permits for today")
                 scraping_status['last_count'] = 0
                 scraping_status['last_run'] = datetime.utcnow()
@@ -167,18 +205,52 @@ def scrape_rrc_permits():
             rows = results_table.find_all('tr')[1:]  # Skip header row
             new_permits = []
             
-            for row in rows:
+            print(f"Found {len(rows)} data rows to process")
+            
+            for i, row in enumerate(rows):
                 cells = row.find_all(['td', 'th'])
-                if len(cells) < 4:
+                if len(cells) < 3:  # Need at least 3 columns
                     continue
                 
                 try:
-                    # Extract permit data (adjust indices based on actual table structure)
-                    county = cells[0].get_text(strip=True).upper() if len(cells) > 0 else ""
-                    operator = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                    lease_name = cells[2].get_text(strip=True) if len(cells) > 2 else ""
-                    well_number = cells[3].get_text(strip=True) if len(cells) > 3 else ""
-                    api_number = cells[4].get_text(strip=True) if len(cells) > 4 else ""
+                    # Debug: print first few rows
+                    if i < 3:
+                        cell_texts = [cell.get_text(strip=True) for cell in cells]
+                        print(f"Row {i}: {cell_texts}")
+                    
+                    # Try different column arrangements
+                    county = ""
+                    operator = ""
+                    lease_name = ""
+                    well_number = ""
+                    api_number = ""
+                    
+                    # Look for county in any cell (usually contains county name)
+                    for cell in cells:
+                        text = cell.get_text(strip=True).upper()
+                        if any(county_name in text for county_name in TEXAS_COUNTIES):
+                            county = text
+                            break
+                    
+                    # If no county found, try first column
+                    if not county and len(cells) > 0:
+                        county = cells[0].get_text(strip=True).upper()
+                    
+                    # Try to find operator (usually company name)
+                    if len(cells) > 1:
+                        operator = cells[1].get_text(strip=True)
+                    
+                    # Try to find lease name
+                    if len(cells) > 2:
+                        lease_name = cells[2].get_text(strip=True)
+                    
+                    # Try to find well number
+                    if len(cells) > 3:
+                        well_number = cells[3].get_text(strip=True)
+                    
+                    # Try to find API number
+                    if len(cells) > 4:
+                        api_number = cells[4].get_text(strip=True)
                     
                     # Find RRC link
                     rrc_link = ""
@@ -190,23 +262,23 @@ def scrape_rrc_permits():
                         else:
                             rrc_link = href
                     
-                    # Validate data
-                    if county and operator and lease_name and well_number:
+                    # Validate data - be more flexible
+                    if county and (operator or lease_name or well_number):
                         # Check if permit already exists
                         existing = Permit.query.filter_by(
                             county=county,
-                            operator=operator,
-                            lease_name=lease_name,
-                            well_number=well_number,
+                            operator=operator or "Unknown",
+                            lease_name=lease_name or "Unknown",
+                            well_number=well_number or "Unknown",
                             date_issued=today
                         ).first()
                         
                         if not existing:
                             permit = Permit(
                                 county=county,
-                                operator=operator,
-                                lease_name=lease_name,
-                                well_number=well_number,
+                                operator=operator or "Unknown",
+                                lease_name=lease_name or "Unknown",
+                                well_number=well_number or "Unknown",
                                 api_number=api_number,
                                 date_issued=today,
                                 rrc_link=rrc_link
@@ -214,7 +286,7 @@ def scrape_rrc_permits():
                             new_permits.append(permit)
                             
                 except Exception as e:
-                    print(f"Error parsing row: {e}")
+                    print(f"Error parsing row {i}: {e}")
                     continue
             
             # Save new permits to database
@@ -626,6 +698,7 @@ def generate_html(permits, county_filter, operator_search, sort_newest):
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">🔍 Search</button>
                     <button type="button" class="btn btn-success" onclick="startScraping()" id="scrapeBtn">🔄 Scrape New Permits</button>
+                    <button type="button" class="btn btn-info" onclick="openCountySelector()">📍 Select Counties</button>
                     <a href="/export/csv" class="btn btn-info">📊 Export CSV</a>
                 </div>
             </form>
@@ -718,6 +791,169 @@ def generate_html(permits, county_filter, operator_search, sort_newest):
                 }})
                 .catch(error => console.error('Status check failed:', error));
         }}, 5000);
+        
+        function openCountySelector() {{
+            // Create modal
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 2000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+                width: 90%;
+            `;
+            
+            content.innerHTML = `
+                <h3 style="margin-top: 0; margin-bottom: 20px;">📍 Select Counties to Monitor</h3>
+                <p style="margin-bottom: 20px; color: #666;">Choose which counties you want to track for new permits:</p>
+                
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="countySearch" placeholder="Search counties..." 
+                           style="width: 100%; padding: 10px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px;">
+                </div>
+                
+                <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                    <button onclick="selectAllFiltered()" class="btn btn-primary btn-small">Select All (Filtered)</button>
+                    <button onclick="deselectAllFiltered()" class="btn btn-secondary btn-small">Deselect All (Filtered)</button>
+                    <button onclick="selectAll()" class="btn btn-success btn-small">Select ALL</button>
+                    <button onclick="deselectAll()" class="btn btn-danger btn-small">Deselect ALL</button>
+                </div>
+                
+                <div id="countyList" style="max-height: 400px; overflow-y: auto; border: 1px solid #e1e5e9; border-radius: 8px; padding: 15px;">
+                    Loading counties...
+                </div>
+                
+                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="closeCountySelector()">Cancel</button>
+                    <button class="btn btn-success" onclick="saveSelectedCounties()">Save Selection</button>
+                </div>
+            `;
+            
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // Load counties and current selection
+            Promise.all([
+                fetch('/api/counties').then(r => r.json()),
+                fetch('/api/selected-counties').then(r => r.json())
+            ]).then(([counties, selectionData]) => {{
+                const selectedCounties = selectionData.counties || [];
+                const countyList = document.getElementById('countyList');
+                
+                let html = '';
+                counties.forEach(county => {{
+                    const isSelected = selectedCounties.includes(county);
+                    html += `
+                        <div class="county-item" style="margin: 8px 0; display: flex; align-items: center;">
+                            <input type="checkbox" id="county_${{county}}" value="${{county}}"
+                                   style="margin-right: 12px; width: 18px; height: 18px;" ${{isSelected ? 'checked' : ''}}>
+                            <label for="county_${{county}}" style="cursor: pointer; flex: 1; font-size: 16px;">${{county}}</label>
+                        </div>
+                    `;
+                }});
+                
+                countyList.innerHTML = html;
+                
+                // Add search functionality
+                document.getElementById('countySearch').addEventListener('input', function() {{
+                    const searchTerm = this.value.toLowerCase();
+                    const items = countyList.querySelectorAll('.county-item');
+                    
+                    items.forEach(item => {{
+                        const label = item.querySelector('label');
+                        const countyName = label.textContent.toLowerCase();
+                        item.style.display = countyName.includes(searchTerm) ? 'flex' : 'none';
+                    }});
+                }});
+            }}).catch(error => {{
+                document.getElementById('countyList').innerHTML = '<p style="color: red;">Error loading counties: ' + error + '</p>';
+            }});
+            
+            // Store modal reference
+            window.countyModal = modal;
+        }}
+        
+        function closeCountySelector() {{
+            if (window.countyModal) {{
+                document.body.removeChild(window.countyModal);
+                window.countyModal = null;
+            }}
+        }}
+        
+        function selectAll() {{
+            document.querySelectorAll('#countyList input[type="checkbox"]').forEach(cb => cb.checked = true);
+        }}
+        
+        function deselectAll() {{
+            document.querySelectorAll('#countyList input[type="checkbox"]').forEach(cb => cb.checked = false);
+        }}
+        
+        function selectAllFiltered() {{
+            document.querySelectorAll('#countyList .county-item[style*="flex"] input[type="checkbox"]').forEach(cb => cb.checked = true);
+        }}
+        
+        function deselectAllFiltered() {{
+            document.querySelectorAll('#countyList .county-item[style*="flex"] input[type="checkbox"]').forEach(cb => cb.checked = false);
+        }}
+        
+        function saveSelectedCounties() {{
+            const selected = [];
+            document.querySelectorAll('#countyList input:checked').forEach(cb => {{
+                selected.push(cb.value);
+            }});
+            
+            fetch('/api/selected-counties', {{
+                method: 'POST',
+                headers: {{
+                    'Content-Type': 'application/json',
+                }},
+                body: JSON.stringify({{counties: selected}})
+            }})
+            .then(response => response.json())
+            .then(data => {{
+                if (data.success) {{
+                    alert(`Saved ${{selected.length}} counties for monitoring!`);
+                    closeCountySelector();
+                    // Update the county dropdown to show selected counties
+                    updateCountyDropdown(selected);
+                }} else {{
+                    alert('Error saving counties: ' + data.error);
+                }}
+            }})
+            .catch(error => {{
+                alert('Error saving counties: ' + error);
+            }});
+        }}
+        
+        function updateCountyDropdown(selectedCounties) {{
+            const countySelect = document.getElementById('county');
+            // Add selected counties as options if they're not already there
+            selectedCounties.forEach(county => {{
+                if (!countySelect.querySelector(`option[value="${{county}}"]`)) {{
+                    const option = document.createElement('option');
+                    option.value = county;
+                    option.textContent = county;
+                    countySelect.appendChild(option);
+                }}
+            }});
+        }}
     </script>
 </body>
 </html>
@@ -782,6 +1018,29 @@ def api_permits():
     """API endpoint to get permits as JSON"""
     permits = Permit.query.order_by(desc(Permit.created_at)).limit(50).all()
     return jsonify([permit.to_dict() for permit in permits])
+
+@app.route('/api/counties')
+def api_counties():
+    """API endpoint to get all Texas counties"""
+    return jsonify(TEXAS_COUNTIES)
+
+@app.route('/api/selected-counties', methods=['GET', 'POST'])
+def api_selected_counties():
+    """API endpoint to get/set selected counties"""
+    if request.method == 'POST':
+        data = request.get_json()
+        selected_counties = data.get('counties', [])
+        
+        # Store in session or database (using session for now)
+        from flask import session
+        session['selected_counties'] = selected_counties
+        
+        return jsonify({'success': True, 'counties': selected_counties})
+    else:
+        # Get from session
+        from flask import session
+        selected_counties = session.get('selected_counties', [])
+        return jsonify({'success': True, 'counties': selected_counties})
 
 @app.route('/export/csv')
 def export_csv():
