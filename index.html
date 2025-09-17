@@ -1,0 +1,308 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="New Permits">
+  <meta name="theme-color" content="#007bff" id="theme-color-meta">
+  <title>New Permits</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      margin: 0; padding: 0; background: #f8f9fa; 
+      line-height: 1.4;
+    }
+    
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      color: white;
+      padding: 1rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .header-controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    
+    /* Buttons */
+    .btn {
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
+    }
+    .btn-primary { background: #007bff; color: white; }
+    .btn-primary:hover { background: #0056b3; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover { background: #1e7e34; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-danger:hover { background: #c82333; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #545b62; }
+    
+    /* Main content */
+    .main-content {
+      padding: 1rem;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    /* County section */
+    .county-section {
+      margin-bottom: 2rem;
+    }
+    .county-header {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 0.5rem;
+    }
+    .county-name {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 0.5rem 0;
+    }
+    .county-count {
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    /* Permit card */
+    .permit-card {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-left: 4px solid #007bff;
+    }
+    .permit-operator {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 0.25rem;
+    }
+    .permit-lease {
+      color: #555;
+      margin-bottom: 0.25rem;
+    }
+    .permit-well {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+    }
+    .permit-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    /* Status */
+    .status {
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .last-update {
+      color: #666;
+      font-size: 0.9rem;
+    }
+    
+    /* Dark theme */
+    [data-theme="dark"] {
+      background: #1a1a1a;
+      color: #e0e0e0;
+    }
+    [data-theme="dark"] .header {
+      background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    }
+    [data-theme="dark"] .county-header,
+    [data-theme="dark"] .permit-card,
+    [data-theme="dark"] .status {
+      background: #2d2d2d;
+      color: #e0e0e0;
+    }
+    [data-theme="dark"] .county-name,
+    [data-theme="dark"] .permit-operator {
+      color: #ffffff;
+    }
+    [data-theme="dark"] .permit-lease {
+      color: #cccccc;
+    }
+    [data-theme="dark"] .permit-well {
+      color: #aaaaaa;
+    }
+    
+    /* Loading */
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+    
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+    .empty-state h3 {
+      color: #333;
+      margin-bottom: 0.5rem;
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <div class="header">
+    <h1>📋 New Permits</h1>
+    <div class="header-controls">
+      <button class="btn btn-primary" onclick="refreshPermits()">🔄 Refresh</button>
+      <button class="btn btn-secondary" onclick="toggleTheme()">🌙 Dark</button>
+      <button class="btn btn-secondary" onclick="selectCounties()">📍 Counties</button>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="status">
+      <div class="last-update">Last Update: {{ last }}</div>
+    </div>
+
+    <div id="permits-container">
+      {% if by_county %}
+        {% for county, permits in by_county %}
+        <div class="county-section">
+          <div class="county-header">
+            <h2 class="county-name">{{ county }}</h2>
+            <div class="county-count">{{ permits|length }} permit{{ 's' if permits|length != 1 else '' }}</div>
+          </div>
+          
+          {% for permit in permits %}
+          <div class="permit-card">
+            <div class="permit-operator">{{ permit.operator or 'Unknown Operator' }}</div>
+            <div class="permit-lease">{{ permit.lease or 'Unknown Lease' }}</div>
+            {% if permit.well %}
+            <div class="permit-well">{{ permit.well }}</div>
+            {% endif %}
+            <div class="permit-actions">
+              <button class="btn btn-primary" onclick="openPermit('{{ permit.url }}')">Open Permit</button>
+              <button class="btn btn-danger" onclick="dismissPermit('{{ permit.key }}')">Dismiss</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">
+          <h3>No permits found</h3>
+          <p>No permits are currently available for your selected counties.</p>
+          <button class="btn btn-primary" onclick="refreshPermits()">Refresh</button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    const TOKEN = "{{ token }}";
+    
+    // Theme toggle
+    function toggleTheme() {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', newTheme);
+      
+      const themeBtn = document.querySelector('button[onclick="toggleTheme()"]');
+      themeBtn.textContent = newTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+      
+      // Save theme preference
+      localStorage.setItem('theme', newTheme);
+    }
+    
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    const themeBtn = document.querySelector('button[onclick="toggleTheme()"]');
+    themeBtn.textContent = savedTheme === 'dark' ? '☀️ Light' : '🌙 Dark';
+    
+    // Permit actions
+    function openPermit(url) {
+      if (url && url !== 'https://example.com') {
+        window.open(url, '_blank');
+      } else {
+        alert('Permit URL not available');
+      }
+    }
+    
+    function dismissPermit(key) {
+      if (confirm('Are you sure you want to dismiss this permit?')) {
+        fetch('/api/dismiss', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth': TOKEN
+          },
+          body: JSON.stringify({ key: key })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.ok) {
+            location.reload();
+          } else {
+            alert('Failed to dismiss permit');
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error dismissing permit');
+        });
+      }
+    }
+    
+    function refreshPermits() {
+      location.reload();
+    }
+    
+    function selectCounties() {
+      alert('County selection coming soon!');
+    }
+    
+    // Push notification support
+    async function requestNotificationPermission() {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          console.log('Notifications enabled!');
+        }
+      }
+    }
+    
+    // Initialize
+    requestNotificationPermission();
+  </script>
+</body>
+</html>
