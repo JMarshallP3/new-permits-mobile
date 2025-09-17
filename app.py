@@ -226,26 +226,67 @@ def index():
                 )
             )
         
-        try:
-            return render_template(
-                "index.html",
-                by_county=sorted(by_county.items()),
-                last=get_last_scrape_time(),
-                token="real-data-token",
-                build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                data_dir="cloud",
-                selected_counties=["LOVING"],  # Your real data is in LOVING county
-                all_counties=TEXAS_COUNTIES,
-            )
-        except Exception as template_error:
-            # Fallback: return JSON data if template fails
-            return jsonify({
-                "message": "Permits loaded successfully!",
-                "permits": active_permits,
-                "by_county": by_county,
-                "last_update": get_last_scrape_time(),
-                "template_error": str(template_error)
-            })
+        # Return mobile-friendly HTML directly (no templates needed)
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>New Permits - RRC Scraper</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }}
+                .header {{ background: #007bff; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }}
+                .permit {{ background: white; margin: 10px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+                .county {{ font-weight: bold; color: #007bff; font-size: 18px; }}
+                .operator {{ font-weight: bold; margin: 5px 0; }}
+                .lease, .well {{ margin: 3px 0; color: #666; }}
+                .url {{ margin-top: 10px; }}
+                .url a {{ background: #007bff; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; }}
+                .refresh {{ background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }}
+                .status {{ background: #e9ecef; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>📋 New Permits - RRC Scraper</h1>
+                <p>Last Update: {get_last_scrape_time()}</p>
+                <button class="refresh" onclick="window.location.href='/api/refresh'">🔄 Refresh/Scrape RRC</button>
+            </div>
+            
+            <div class="status">
+                <strong>Status:</strong> {len(active_permits)} permits found
+            </div>
+        """
+        
+        if active_permits:
+            for county, permits in sorted(by_county.items()):
+                html += f'<h2 class="county">{county} County ({len(permits)} permits)</h2>'
+                for permit in permits:
+                    html += f"""
+                    <div class="permit">
+                        <div class="operator">{permit.get('operator', 'N/A')}</div>
+                        <div class="lease">Lease: {permit.get('lease', 'N/A')}</div>
+                        <div class="well">Well: {permit.get('well', 'N/A')}</div>
+                        <div class="url">
+                            <a href="{permit.get('url', '#')}" target="_blank">Open RRC Permit</a>
+                        </div>
+                    </div>
+                    """
+        else:
+            html += """
+            <div class="permit">
+                <h3>No permits found</h3>
+                <p>Click "Refresh/Scrape RRC" to start scraping the RRC website.</p>
+                <p>This may take 30-60 seconds to complete.</p>
+            </div>
+            """
+        
+        html += """
+        </body>
+        </html>
+        """
+        
+        return html
     except Exception as e:
         return f"Error loading permits: {str(e)}", 500
 
