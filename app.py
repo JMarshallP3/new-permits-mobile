@@ -758,7 +758,7 @@ def index():
                     document.body.appendChild(modal);
                     
                     // Populate counties in alphabetical order like desktop app
-                    const counties = ${list(TEXAS_COUNTIES)};
+                    const counties = """ + json.dumps(list(TEXAS_COUNTIES)) + """;
                     const countyList = document.getElementById('countyList');
                     const countyCheckboxes = [];
                     
