@@ -223,5 +223,5 @@ def api_undismiss():
     return jsonify({"ok": False, "message": "No key provided"})
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5000))  # Use 5000 to match Railway config
+    port = int(os.environ.get('PORT', 8000))  # Railway auto-detect will set the correct port
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
