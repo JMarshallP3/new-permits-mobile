@@ -92,6 +92,36 @@ dismissed_permits = set()
 def health():
     return jsonify({"status": "ok", "message": "App is running"})
 
+# Simple HTML route without templates
+@app.route("/simple")
+def simple():
+    real_permits = load_real_permits()
+    active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
+    
+    html = f"""
+    <html>
+    <head><title>New Permits - Real Data</title></head>
+    <body>
+        <h1>📋 New Permits - Real Data</h1>
+        <p>Last Update: {get_last_scrape_time()}</p>
+        <h2>Your Real Permits:</h2>
+    """
+    
+    for permit in active_permits:
+        html += f"""
+        <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+            <h3>{permit.get('county', 'UNKNOWN')} County</h3>
+            <p><strong>Operator:</strong> {permit.get('operator', 'N/A')}</p>
+            <p><strong>Lease:</strong> {permit.get('lease', 'N/A')}</p>
+            <p><strong>Well:</strong> {permit.get('well', 'N/A')}</p>
+            <p><strong>Added:</strong> {permit.get('added_at', 'N/A')}</p>
+            <a href="{permit.get('url', '#')}" target="_blank">Open Permit</a>
+        </div>
+        """
+    
+    html += "</body></html>"
+    return html
+
 @app.route("/")
 def index():
     try:
@@ -118,16 +148,26 @@ def index():
                 )
             )
         
-        return render_template(
-            "index.html",
-            by_county=sorted(by_county.items()),
-            last=get_last_scrape_time(),
-            token="real-data-token",
-            build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            data_dir="cloud",
-            selected_counties=["LOVING"],  # Your real data is in LOVING county
-            all_counties=TEXAS_COUNTIES,
-        )
+        try:
+            return render_template(
+                "index.html",
+                by_county=sorted(by_county.items()),
+                last=get_last_scrape_time(),
+                token="real-data-token",
+                build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                data_dir="cloud",
+                selected_counties=["LOVING"],  # Your real data is in LOVING county
+                all_counties=TEXAS_COUNTIES,
+            )
+        except Exception as template_error:
+            # Fallback: return JSON data if template fails
+            return jsonify({
+                "message": "Permits loaded successfully!",
+                "permits": active_permits,
+                "by_county": by_county,
+                "last_update": get_last_scrape_time(),
+                "template_error": str(template_error)
+            })
     except Exception as e:
         return f"Error loading permits: {str(e)}", 500
 
@@ -183,5 +223,5 @@ def api_undismiss():
     return jsonify({"ok": False, "message": "No key provided"})
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 8000))
+    port = int(os.environ.get('PORT', 5000))  # Use 5000 to match Railway config
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
