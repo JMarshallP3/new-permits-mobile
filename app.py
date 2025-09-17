@@ -111,15 +111,51 @@ def scrape_rrc_permits():
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             })
             
-            # Real RRC scraping logic
+            # Real RRC scraping logic - try multiple approaches
             RRC_BASE_URL = "https://webapps.rrc.state.tx.us"
-            RRC_SEARCH_URL = f"{RRC_BASE_URL}/DP/initializePublicQueryAction.do"
             
-            # Step 1: Get the initial search page
-            response = session.get(RRC_SEARCH_URL)
-            response.raise_for_status()
+            # Try different RRC URLs that might work
+            possible_urls = [
+                f"{RRC_BASE_URL}/DP/initializePublicQueryAction.do",
+                f"{RRC_BASE_URL}/DP/publicQueryAction.do",
+                f"{RRC_BASE_URL}/DP/queryAction.do",
+                f"{RRC_BASE_URL}/DP/",
+                f"{RRC_BASE_URL}/DP/publicQuery.do"
+            ]
             
-            soup = BeautifulSoup(response.text, 'html.parser')
+            response = None
+            soup = None
+            
+            # Try each URL until we find one that works
+            for url in possible_urls:
+                try:
+                    print(f"Trying RRC URL: {url}")
+                    response = session.get(url, timeout=30)
+                    response.raise_for_status()
+                    
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Check if this is a login page (bad) or search page (good)
+                    page_text = soup.get_text().lower()
+                    if 'log in' in page_text or 'userid' in page_text or 'password' in page_text:
+                        print(f"URL {url} redirected to login page - trying next URL")
+                        continue
+                    
+                    # Check if we found a search form
+                    form = soup.find('form')
+                    if form and ('submittedDateBegin' in str(form) or 'dateBegin' in str(form) or 'beginDate' in str(form)):
+                        print(f"Found working search form at: {url}")
+                        break
+                    else:
+                        print(f"No search form found at {url} - trying next URL")
+                        continue
+                        
+                except Exception as e:
+                    print(f"Error with URL {url}: {e}")
+                    continue
+            
+            if not soup or not response:
+                raise Exception("Could not access any RRC search page - all URLs failed")
             
             # Step 2: Find and fill the search form
             form = soup.find('form')
@@ -129,8 +165,12 @@ def scrape_rrc_permits():
             form_action = form.get('action', '')
             if form_action.startswith('/'):
                 form_url = f"{RRC_BASE_URL}{form_action}"
+            elif form_action.startswith('http'):
+                form_url = form_action
             else:
                 form_url = f"{RRC_BASE_URL}/DP/{form_action}"
+            
+            print(f"Submitting form to: {form_url}")
             
             # Prepare form data
             form_data = {}
@@ -144,8 +184,6 @@ def scrape_rrc_permits():
             
             # Set date range to today
             date_str = today.strftime('%m/%d/%Y')
-            form_data['submittedDateBegin'] = date_str
-            form_data['submittedDateEnd'] = date_str
             
             # Try different form field names that RRC might use
             possible_date_fields = [
@@ -153,22 +191,55 @@ def scrape_rrc_permits():
                 'dateBegin', 'dateEnd',
                 'beginDate', 'endDate',
                 'fromDate', 'toDate',
-                'startDate', 'stopDate'
+                'startDate', 'stopDate',
+                'submittedDate', 'queryDate',
+                'permitDateBegin', 'permitDateEnd'
             ]
             
+            # Set all possible date fields
             for field in possible_date_fields:
                 if field in form_data:
                     if 'begin' in field.lower() or 'start' in field.lower() or 'from' in field.lower():
                         form_data[field] = date_str
                     elif 'end' in field.lower() or 'stop' in field.lower() or 'to' in field.lower():
                         form_data[field] = date_str
+                    else:
+                        form_data[field] = date_str
+            
+            # Also try setting some common fields that might be required
+            form_data['submittedDateBegin'] = date_str
+            form_data['submittedDateEnd'] = date_str
+            
+            print(f"Form data: {form_data}")
             
             # Submit the form
-            response = session.post(form_url, data=form_data)
+            response = session.post(form_url, data=form_data, timeout=30)
             response.raise_for_status()
             
             # Step 3: Parse the results
             soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Check if we got redirected to login again
+            page_text = soup.get_text().lower()
+            if 'log in' in page_text or 'userid' in page_text or 'password' in page_text:
+                print("Form submission redirected to login page - trying fallback method")
+                # Try a different approach - direct search URL
+                try:
+                    fallback_url = f"{RRC_BASE_URL}/DP/publicQueryAction.do"
+                    fallback_data = {
+                        'submittedDateBegin': date_str,
+                        'submittedDateEnd': date_str,
+                        'queryType': 'drillingPermit',
+                        'status': 'active'
+                    }
+                    print(f"Trying fallback URL: {fallback_url}")
+                    response = session.post(fallback_url, data=fallback_data, timeout=30)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    print("Fallback method successful")
+                except Exception as e:
+                    print(f"Fallback method failed: {e}")
+                    raise Exception("All scraping methods failed - RRC website may require authentication")
             
             # Find the results table - look for the largest table with data
             all_tables = soup.find_all('table')
