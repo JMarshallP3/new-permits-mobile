@@ -4,4 +4,5 @@ selenium==4.15.0
 beautifulsoup4==4.12.2
 webdriver-manager==4.0.1
 requests==2.31.0
-# Updated: 2024-12-19 - Added RRC scraping with fallback
+python-dateutil==2.8.2
+# Updated: 2024-12-19 - Added desktop app scraping logic
