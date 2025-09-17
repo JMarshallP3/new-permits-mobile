@@ -5,6 +5,15 @@ import json
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
+# Add error handling
+@app.errorhandler(500)
+def internal_error(error):
+    return "Internal Server Error", 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return "Not Found", 404
+
 # REAL PERMIT DATA FROM YOUR DESKTOP APP - VERSION 5.0
 def load_real_permits():
     """Load real permit data from your desktop app files"""
@@ -78,41 +87,49 @@ TEXAS_COUNTIES = [
 # In-memory storage for dismissed permits
 dismissed_permits = set()
 
+# Health check route
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "message": "App is running"})
+
 @app.route("/")
 def index():
-    # Load REAL permit data from your desktop app
-    real_permits = load_real_permits()
-    
-    # Filter out dismissed permits
-    active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
-    
-    # Group permits by county
-    by_county = {}
-    for permit in active_permits:
-        county = permit.get("county", "UNKNOWN")
-        by_county.setdefault(county, []).append(permit)
-    
-    # Sort counties
-    for k in by_county:
-        by_county[k] = sorted(
-            by_county[k],
-            key=lambda it: (
-                (it.get("operator") or "").upper(),
-                (it.get("lease") or "").upper(),
-                (it.get("well") or "").upper()
+    try:
+        # Load REAL permit data from your desktop app
+        real_permits = load_real_permits()
+        
+        # Filter out dismissed permits
+        active_permits = [p for p in real_permits if p["key"] not in dismissed_permits]
+        
+        # Group permits by county
+        by_county = {}
+        for permit in active_permits:
+            county = permit.get("county", "UNKNOWN")
+            by_county.setdefault(county, []).append(permit)
+        
+        # Sort counties
+        for k in by_county:
+            by_county[k] = sorted(
+                by_county[k],
+                key=lambda it: (
+                    (it.get("operator") or "").upper(),
+                    (it.get("lease") or "").upper(),
+                    (it.get("well") or "").upper()
+                )
             )
+        
+        return render_template(
+            "index.html",
+            by_county=sorted(by_county.items()),
+            last=get_last_scrape_time(),
+            token="real-data-token",
+            build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            data_dir="cloud",
+            selected_counties=["LOVING"],  # Your real data is in LOVING county
+            all_counties=TEXAS_COUNTIES,
         )
-    
-    return render_template(
-        "index.html",
-        by_county=sorted(by_county.items()),
-        last=get_last_scrape_time(),
-        token="real-data-token",
-        build_stamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        data_dir="cloud",
-        selected_counties=["LOVING"],  # Your real data is in LOVING county
-        all_counties=TEXAS_COUNTIES,
-    )
+    except Exception as e:
+        return f"Error loading permits: {str(e)}", 500
 
 @app.route("/api/permits")
 def api_permits():
