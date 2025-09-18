@@ -15,16 +15,33 @@ RUN apt-get update && apt-get install -y \
     curl \
     xvfb \
     ca-certificates \
+    jq \
     && wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
-    && wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/LATEST_RELEASE \
-    && CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE) \
-    && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip" \
-    && unzip /tmp/chromedriver.zip -d /usr/local/bin/ \
+    && CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') \
+    && echo "Installed Chrome version: $CHROME_VERSION" \
+    && CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1) \
+    && if [ "$CHROME_MAJOR_VERSION" -ge 115 ]; then \
+        echo "Using Chrome for Testing API for Chrome $CHROME_MAJOR_VERSION+" \
+        && CHROMEDRIVER_VERSION=$(curl -s "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_$CHROME_MAJOR_VERSION") \
+        && echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION" \
+        && wget -O /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/$CHROMEDRIVER_VERSION/linux64/chromedriver-linux64.zip"; \
+    else \
+        echo "Using legacy ChromeDriver API for Chrome $CHROME_MAJOR_VERSION" \
+        && CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%.*}") \
+        && echo "Using ChromeDriver version: $CHROMEDRIVER_VERSION" \
+        && wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"; \
+    fi \
+    && unzip /tmp/chromedriver.zip -d /tmp/ \
+    && if [ "$CHROME_MAJOR_VERSION" -ge 115 ]; then \
+        cp /tmp/chromedriver-linux64/chromedriver /usr/local/bin/; \
+    else \
+        cp /tmp/chromedriver /usr/local/bin/; \
+    fi \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm /tmp/chromedriver.zip \
+    && rm -rf /tmp/chromedriver* \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
