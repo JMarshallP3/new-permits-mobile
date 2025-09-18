@@ -216,34 +216,49 @@ def scrape_rrc_permits():
                     all_inputs = driver.find_elements(By.TAG_NAME, "input")
                     print(f"Found {len(all_inputs)} input fields on the page")
                     
-                    # Find and fill the Submitted Date From field
+                    # Find and fill the Submit Start field
                     try:
-                        begin_field = driver.find_element(By.NAME, "submittedDateFrom")
+                        begin_field = driver.find_element(By.NAME, "submitStart")
                         begin_field.clear()
                         begin_field.send_keys(date_str)
-                        print(f"✅ Filled Submitted Date From: {date_str}")
+                        print(f"✅ Filled Submit Start: {date_str}")
                     except Exception as e:
-                        print(f"❌ Could not find submittedDateFrom field: {e}")
+                        print(f"❌ Could not find submitStart field: {e}")
                         # List all input fields for debugging
                         for inp in all_inputs:
                             if inp.get_attribute('name'):
                                 print(f"  Input field: name='{inp.get_attribute('name')}', type='{inp.get_attribute('type')}', placeholder='{inp.get_attribute('placeholder')}'")
                             
-                    # Find and fill the Submitted Date To field
+                    # Find and fill the Submit End field
                     try:
-                        end_field = driver.find_element(By.NAME, "submittedDateTo")
+                        end_field = driver.find_element(By.NAME, "submitEnd")
                         end_field.clear()
                         end_field.send_keys(date_str)
-                        print(f"✅ Filled Submitted Date To: {date_str}")
+                        print(f"✅ Filled Submit End: {date_str}")
                     except Exception as e:
-                        print(f"❌ Could not find submittedDateTo field: {e}")
+                        print(f"❌ Could not find submitEnd field: {e}")
                     
-                    # Find and click the Search button
+                    # Find and click the Submit button
                     try:
-                        # Look for the Search button by name="search"
-                        search_button = driver.find_element(By.NAME, "search")
-                        print("✅ Found Search button by name='search', clicking...")
-                        search_button.click()
+                        # Look for all submit buttons to debug
+                        submit_buttons = driver.find_elements(By.CSS_SELECTOR, "input[type='submit']")
+                        print(f"Found {len(submit_buttons)} submit buttons")
+                        
+                        # Find the correct submit button (name='submit' with value='Submit')
+                        search_button = None
+                        for i, button in enumerate(submit_buttons):
+                            name = button.get_attribute('name')
+                            value = button.get_attribute('value')
+                            print(f"Button {i}: name='{name}', value='{value}', text=''")
+                            if name == 'submit' and value == 'Submit':
+                                search_button = button
+                                break
+                        
+                        if search_button:
+                            print("✅ Found Submit button (name='submit', value='Submit'), clicking...")
+                            search_button.click()
+                        else:
+                            raise Exception("Could not find submit button with name='submit' and value='Submit'")
                         
                         # Wait for results page to load
                         WebDriverWait(driver, 20).until(
