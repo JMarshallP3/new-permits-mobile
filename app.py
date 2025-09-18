@@ -100,19 +100,30 @@ def scrape_rrc_permits():
                 from selenium.webdriver.support import expected_conditions as EC
                 from selenium.webdriver.chrome.options import Options
                 from selenium.webdriver.common.keys import Keys
+                from selenium.webdriver.chrome.service import Service
+                from webdriver_manager.chrome import ChromeDriverManager
                 
                 print(f"Using Selenium to scrape RRC for date: {date_str}")
                 
-                # Set up Chrome options for headless mode
+                # Set up Chrome options for headless mode and cloud deployment
                 chrome_options = Options()
                 chrome_options.add_argument('--headless')
                 chrome_options.add_argument('--no-sandbox')
                 chrome_options.add_argument('--disable-dev-shm-usage')
                 chrome_options.add_argument('--disable-gpu')
+                chrome_options.add_argument('--disable-web-security')
+                chrome_options.add_argument('--disable-features=VizDisplayCompositor')
                 chrome_options.add_argument('--window-size=1920,1080')
-                chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
                 
-                driver = webdriver.Chrome(options=chrome_options)
+                # Try to use webdriver-manager for automatic ChromeDriver management
+                try:
+                    service = Service(ChromeDriverManager().install())
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                except Exception as e:
+                    print(f"WebDriverManager failed: {e}")
+                    # Fallback to system ChromeDriver
+                    driver = webdriver.Chrome(options=chrome_options)
                 
                 try:
                     # Navigate to the RRC search page
@@ -198,13 +209,17 @@ def scrape_rrc_permits():
                 finally:
                     driver.quit()
                     
-            except ImportError:
-                print("Selenium not available, falling back to requests...")
+            except ImportError as e:
+                print(f"Selenium not available: {e}, falling back to requests...")
+            except Exception as selenium_error:
+                print(f"Selenium failed: {selenium_error}, falling back to requests...")
                 
-                # Fallback to requests approach
+            # Fallback to requests approach
+            try:
+                print("Using requests fallback for RRC scraping...")
                 session = requests.Session()
                 session.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.5',
                     'Accept-Encoding': 'gzip, deflate',
@@ -262,7 +277,10 @@ def scrape_rrc_permits():
                                     print(f"Found {len(permits)} permits via form submission")
                                     scraping_status['last_count'] = len(permits)
                                     return
-            
+                                    
+            except Exception as requests_error:
+                print(f"Requests fallback also failed: {requests_error}")
+                
             print("No new permits found for today")
             scraping_status['last_count'] = 0
             

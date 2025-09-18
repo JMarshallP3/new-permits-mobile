@@ -1,0 +1,23 @@
+﻿{
+  "name": "New Permits",
+  "short_name": "New Permits",
+  "description": "RRC W-1 Permit Monitor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#007bff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "en-US",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "color_scheme": "light dark"
+}
