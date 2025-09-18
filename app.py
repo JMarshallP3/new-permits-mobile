@@ -478,8 +478,22 @@ def parse_rrc_results(soup, today):
                     if not api_number or not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
                         continue
                     
-                    # Create RRC link
-                    rrc_link = f"https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name={lease_name.replace(' ', '%20')}&fromPublicQuery=Y"
+                    # Extract RRC link from the table row
+                    rrc_link = ""
+                    link_element = row.find('a', href=True)
+                    if link_element:
+                        href = link_element['href']
+                        if href.startswith('/'):
+                            rrc_link = f"https://webapps.rrc.state.tx.us{href}"
+                        elif href.startswith('http'):
+                            rrc_link = href
+                        else:
+                            rrc_link = f"https://webapps.rrc.state.tx.us/DP/{href}"
+                        print(f"Found RRC link: {rrc_link}")
+                    else:
+                        # Fallback to generic link if no specific link found
+                        rrc_link = f"https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name={lease_name.replace(' ', '%20')}&fromPublicQuery=Y"
+                        print(f"Using fallback RRC link: {rrc_link}")
                     
                     # Check if permit already exists
                     existing_permit = Permit.query.filter_by(
@@ -510,6 +524,11 @@ def parse_rrc_results(soup, today):
             if new_permits:
                 db.session.commit()
                 print(f"Successfully added {len(new_permits)} new permits")
+                
+                # Debug: Check total permits in database
+                total_permits = Permit.query.count()
+                print(f"Total permits in database: {total_permits}")
+                
                 return new_permits
             else:
                 print("No new permits found")
@@ -528,6 +547,7 @@ def generate_html():
     """Generate the complete HTML page"""
     # Get permits from database
     permits = Permit.query.order_by(Permit.created_at.desc()).all()
+    print(f"DEBUG: Total permits in database: {len(permits)}")
     
     # Get selected counties from session
     selected_counties = session.get('selected_counties', [])
@@ -536,6 +556,8 @@ def generate_html():
     county_filter = request.args.get('county', '')
     search_term = request.args.get('search', '')
     sort_by = request.args.get('sort', 'newest')
+    
+    print(f"DEBUG: Filters - county: '{county_filter}', search: '{search_term}', sort: '{sort_by}'")
     
     filtered_permits = permits
     
@@ -547,6 +569,8 @@ def generate_html():
         filtered_permits = [p for p in filtered_permits if 
                           search_lower in p.operator.lower() or 
                           search_lower in p.lease_name.lower()]
+    
+    print(f"DEBUG: After filtering: {len(filtered_permits)} permits")
     
     if sort_by == 'newest':
         filtered_permits.sort(key=lambda x: x.created_at, reverse=True)
