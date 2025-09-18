@@ -266,13 +266,13 @@ def scrape_rrc_permits():
             print("No new permits found for today")
             scraping_status['last_count'] = 0
             
-        except Exception as e:
-            print(f"Error scraping RRC permits: {e}")
-            import traceback
-            traceback.print_exc()
-            scraping_status['error'] = str(e)
-        finally:
-            scraping_status['is_running'] = False
+    except Exception as e:
+        print(f"Error scraping RRC permits: {e}")
+        import traceback
+        traceback.print_exc()
+        scraping_status['error'] = str(e)
+    finally:
+        scraping_status['is_running'] = False
 
 def parse_rrc_results(soup, today):
     """Parse RRC results page and extract permit data"""
