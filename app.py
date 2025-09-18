@@ -77,8 +77,8 @@ scraping_status = {
 }
 
 # Push notification configuration
-VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'your-vapid-private-key-here')
-VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'your-vapid-public-key-here')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ2NHdE05TWhqNFo0YU9HSFQKVTNlTXZyL2l1S0FCamdZeUxMdmxXQUZQbE0raFJBTkNBQVFqR296SUl1am1WNnJLVDNyN0hFU1piblJvTTdzeAp1VjBJZ2ExYk50WnhVWWZVaEl4dHF1T3hxZFRaT2x1bkpQWVpKQ3JuVUJWU1FCYThaWkQ5SEtWQwotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFSXhxTXlDTG81bGVxeWs5Nit4eEVtVzUwYURPNwpNYmxkQ0lHdFd6YldjVkdIMUlTTWJhcmpzYW5VMlRwYnB5VDJHU1FxNTFBVlVrQVd2R1dRL1J5bFFnPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg')
 VAPID_CLAIMS = {
     "sub": "mailto:your-email@example.com"
 }
@@ -1798,13 +1798,16 @@ def generate_html():
             }}
             
             function initializePushNotifications() {{
+                // Always show the notification button initially
+                const btn = document.getElementById('notificationBtn');
+                if (btn) btn.style.display = 'inline-flex';
+                
                 // Check if push notifications are available on the server
                 fetch('/api/vapid-public-key')
                 .then(response => {{
                     if (!response.ok) {{
-                        console.warn('Push notifications not available on server');
-                        const btn = document.getElementById('notificationBtn');
-                        if (btn) btn.style.display = 'none';
+                        console.warn('Push notifications not available on server, but showing button anyway');
+                        // Don't hide the button - let user try anyway
                         return;
                     }}
                     
@@ -1838,9 +1841,8 @@ def generate_html():
                     }}
                 }})
                 .catch(function(error) {{
-                    console.warn('Failed to check push notification availability:', error);
-                    const btn = document.getElementById('notificationBtn');
-                    if (btn) btn.style.display = 'none';
+                    console.warn('Failed to check push notification availability, but showing button anyway:', error);
+                    // Don't hide the button - let user try anyway
                 }});
             }}
         </script>
