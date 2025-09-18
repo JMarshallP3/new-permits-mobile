@@ -1734,6 +1734,7 @@ def generate_html():
             }}
             
             function updateSubscriptionOnServer(subscription) {{
+                console.log('Sending subscription to server:', subscription);
                 return fetch('/api/subscribe', {{
                     method: 'POST',
                     headers: {{
@@ -1762,19 +1763,30 @@ def generate_html():
             }}
             
             function subscribeUser() {{
+                console.log('Attempting to subscribe user...');
                 const applicationServerKey = urlBase64ToUint8Array('{VAPID_PUBLIC_KEY}');
                 return swRegistration.pushManager.subscribe({{
                     userVisibleOnly: true,
                     applicationServerKey: applicationServerKey
                 }})
                 .then(function(subscription) {{
-                    console.log('User is subscribed.');
-                    updateSubscriptionOnServer(subscription);
-                    isSubscribed = true;
-                    updateBtn();
+                    console.log('User is subscribed:', subscription);
+                    return updateSubscriptionOnServer(subscription);
+                }})
+                .then(function(response) {{
+                    console.log('Server response:', response);
+                    if (response.ok) {{
+                        isSubscribed = true;
+                        updateBtn();
+                        console.log('Successfully subscribed!');
+                    }} else {{
+                        console.error('Server subscription failed:', response);
+                        throw new Error('Server subscription failed');
+                    }}
                 }})
                 .catch(function(err) {{
-                    console.log('Failed to subscribe the user: ', err);
+                    console.log('Failed to subscribe the user:', err);
+                    alert('Failed to enable notifications. Please try again.');
                 }});
             }}
             
@@ -1920,15 +1932,30 @@ def api_selected_counties():
 @app.route('/api/subscribe', methods=['POST'])
 def api_subscribe():
     """Subscribe to push notifications"""
-    if not PUSH_NOTIFICATIONS_AVAILABLE:
-        return jsonify({'error': 'Push notifications not available'}), 503
-    
     data = request.get_json()
     
     if not data or not data.get('endpoint'):
         return jsonify({'error': 'Missing subscription data'}), 400
     
     try:
+        if not PUSH_NOTIFICATIONS_AVAILABLE:
+            print("Push notifications not available, but storing subscription anyway")
+            # Store subscription even if pywebpush isn't available
+            subscription = Subscription(
+                endpoint=data['endpoint'],
+                p256dh=data.get('keys', {}).get('p256dh', ''),
+                auth=data.get('keys', {}).get('auth', ''),
+                user_agent=request.headers.get('User-Agent', '')
+            )
+            
+            # Remove existing subscription with same endpoint
+            Subscription.query.filter_by(endpoint=data['endpoint']).delete()
+            
+            db.session.add(subscription)
+            db.session.commit()
+            
+            return jsonify({'success': True, 'message': 'Subscribed to notifications (limited functionality)'})
+        
         # Store subscription
         subscription = Subscription(
             endpoint=data['endpoint'],
@@ -1967,8 +1994,7 @@ def api_unsubscribe():
 @app.route('/api/vapid-public-key')
 def api_vapid_public_key():
     """Get VAPID public key for push notifications"""
-    if not PUSH_NOTIFICATIONS_AVAILABLE:
-        return jsonify({'error': 'Push notifications not available'}), 503
+    # Always return the VAPID public key, even if pywebpush isn't available
     return jsonify({'publicKey': VAPID_PUBLIC_KEY})
 
 @app.route('/export/csv')
