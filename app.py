@@ -415,6 +415,25 @@ def scrape_rrc_permits():
     finally:
         scraping_status['is_running'] = False
 
+def normalize_county_name(county_name):
+    """Normalize county name to match TEXAS_COUNTIES format"""
+    if not county_name:
+        return ''
+    
+    # Remove "County" suffix if present
+    county_name = county_name.replace(' COUNTY', '').replace(' County', '').replace(' county', '')
+    
+    # Convert to uppercase
+    county_name = county_name.upper().strip()
+    
+    # Check if it matches any Texas county
+    for texas_county in TEXAS_COUNTIES:
+        if county_name == texas_county:
+            return texas_county
+    
+    # If no exact match, return the cleaned name
+    return county_name
+
 def parse_rrc_results(soup, today):
     """Parse RRC results page and extract permit data"""
     try:
@@ -470,12 +489,14 @@ def parse_rrc_results(soup, today):
                     county = ''
                     for cell in cells[6:]:
                         cell_text = cell.get_text(strip=True)
-                        if cell_text and cell_text.upper() in [c.upper() for c in TEXAS_COUNTIES]:
-                            county = cell_text.upper()
-                            break
+                        if cell_text:
+                            normalized_county = normalize_county_name(cell_text)
+                            if normalized_county:
+                                county = normalized_county
+                                break
                     
                     # Skip header rows or invalid data
-                    if not api_number or not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
+                    if not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
                         continue
                     
                     # Extract RRC link from the table row
@@ -1018,11 +1039,6 @@ def generate_html():
                     </div>
                     
                     <div class="control-group">
-                        <label for="search">Search Operator/Lease:</label>
-                        <input type="text" id="search" name="search" placeholder="Enter operator or lease name..." value="{search_term}">
-                    </div>
-                    
-                    <div class="control-group">
                         <label for="sort">Sort By:</label>
                         <select id="sort" name="sort">
                             <option value="newest" {"selected" if sort_by == "newest" else ""}>Most Recent</option>
@@ -1035,7 +1051,7 @@ def generate_html():
                 
                 <div class="buttons">
                     <button class="btn btn-primary" onclick="applyFilters()">
-                        🔍 Search
+                        🔍 Apply Filters
                     </button>
                     <button class="btn btn-success" onclick="startScraping()">
                         🔄 Scrape New Permits
@@ -1121,19 +1137,34 @@ def generate_html():
             <div class="county-selector" id="county-selector">
                 <div class="county-modal">
                     <h3>📍 Select Counties to Monitor</h3>
-                    <div class="county-grid">
+                    
+                    <!-- Search Bar -->
+                    <div class="county-search-container">
+                        <input type="text" id="countySearch" placeholder="Search counties..." class="county-search-input">
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="county-actions">
+                        <button class="btn btn-outline-primary btn-sm" onclick="selectAllFiltered()">Select All (Filtered)</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="deselectAllFiltered()">Deselect All (Filtered)</button>
+                        <button class="btn btn-outline-success btn-sm" onclick="selectAll()">Select ALL</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deselectAll()">Deselect ALL</button>
+                    </div>
+                    
+                    <!-- Counties Grid -->
+                    <div class="county-grid" id="countyGrid">
                         {''.join([f'''
-                        <div class="county-item">
+                        <div class="county-item" data-county="{county.lower()}">
                             <input type="checkbox" id="county-{county}" value="{county}" {"checked" if county in selected_counties else ""}>
                             <label for="county-{county}">{county}</label>
                         </div>
                         ''' for county in TEXAS_COUNTIES])}
                     </div>
+                    
+                    <!-- Modal Actions -->
                     <div class="modal-actions">
-                        <button class="btn btn-outline-primary" onclick="selectAll()">Select All</button>
-                        <button class="btn btn-outline-primary" onclick="deselectAll()">Deselect All</button>
-                        <button class="btn btn-primary" onclick="saveSelectedCounties()">Save Selection</button>
                         <button class="btn btn-outline-danger" onclick="closeCountySelector()">Cancel</button>
+                        <button class="btn btn-primary" onclick="saveSelectedCounties()">Save Selection</button>
                     </div>
                 </div>
             </div>
@@ -1198,6 +1229,36 @@ def generate_html():
                 const checkboxes = document.querySelectorAll('#county-selector input[type="checkbox"]');
                 checkboxes.forEach(checkbox => checkbox.checked = false);
             }}
+            
+            function selectAllFiltered() {{
+                const visibleCheckboxes = document.querySelectorAll('#county-selector .county-item:not([style*="display: none"]) input[type="checkbox"]');
+                visibleCheckboxes.forEach(checkbox => checkbox.checked = true);
+            }}
+            
+            function deselectAllFiltered() {{
+                const visibleCheckboxes = document.querySelectorAll('#county-selector .county-item:not([style*="display: none"]) input[type="checkbox"]');
+                visibleCheckboxes.forEach(checkbox => checkbox.checked = false);
+            }}
+            
+            // County search functionality
+            document.addEventListener('DOMContentLoaded', function() {{
+                const searchInput = document.getElementById('countySearch');
+                if (searchInput) {{
+                    searchInput.addEventListener('input', function() {{
+                        const searchTerm = this.value.toLowerCase();
+                        const countyItems = document.querySelectorAll('.county-item');
+                        
+                        countyItems.forEach(item => {{
+                            const countyName = item.getAttribute('data-county');
+                            if (countyName.includes(searchTerm)) {{
+                                item.style.display = 'block';
+                            }} else {{
+                                item.style.display = 'none';
+                            }}
+                        }});
+                    }});
+                }}
+            }});
             
             function saveSelectedCounties() {{
                 const checkboxes = document.querySelectorAll('#county-selector input[type="checkbox"]:checked');
