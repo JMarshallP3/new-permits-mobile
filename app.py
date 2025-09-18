@@ -8,7 +8,11 @@ import time
 import os
 import csv
 import io
+import json
+import sqlite3
 from urllib.parse import urljoin
+from pywebpush import webpush, WebPushException
+import base64
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -31,6 +35,27 @@ class Permit(db.Model):
     rrc_link = db.Column(db.String(500), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# Push notification subscription model
+class Subscription(db.Model):
+    __tablename__ = 'subscriptions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    endpoint = db.Column(db.String(500), nullable=False, unique=True)
+    p256dh = db.Column(db.String(200), nullable=False)
+    auth = db.Column(db.String(200), nullable=False)
+    user_agent = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+# User settings model
+class UserSettings(db.Model):
+    __tablename__ = 'user_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), nullable=False, unique=True)
+    selected_counties = db.Column(db.Text)  # JSON string
+    last_notification_check = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 # Global scraping status
 scraping_status = {
     'is_running': False,
@@ -38,6 +63,97 @@ scraping_status = {
     'last_count': 0,
     'error': None
 }
+
+# Push notification configuration
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'your-vapid-private-key-here')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'your-vapid-public-key-here')
+VAPID_CLAIMS = {
+    "sub": "mailto:your-email@example.com"
+}
+
+def send_push_notification(subscription, title, body, url=None):
+    """Send push notification to a subscription"""
+    try:
+        payload = json.dumps({
+            "title": title,
+            "body": body,
+            "url": url or "/",
+            "icon": "/static/icon-512.png",
+            "badge": "/static/apple-touch-icon.png"
+        })
+        
+        webpush(
+            subscription_info=subscription,
+            data=payload,
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims=VAPID_CLAIMS
+        )
+        return True
+    except WebPushException as e:
+        print(f"Push notification failed: {e}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error sending push notification: {e}")
+        return False
+
+def send_notifications_for_new_permits(new_permits):
+    """Send push notifications for new permits to subscribed users"""
+    if not new_permits:
+        return
+    
+    with app.app_context():
+        # Get all active subscriptions
+        subscriptions = Subscription.query.all()
+        
+        if not subscriptions:
+            print("No active subscriptions found")
+            return
+        
+        # Get user settings for filtering by counties
+        user_settings = {}
+        for setting in UserSettings.query.all():
+            try:
+                counties = json.loads(setting.selected_counties) if setting.selected_counties else []
+                user_settings[setting.session_id] = counties
+            except:
+                user_settings[setting.session_id] = []
+        
+        notifications_sent = 0
+        
+        for permit in new_permits:
+            permit_county = permit.county
+            
+            # Send notification to all subscriptions (in a real app, you'd match by user)
+            for subscription in subscriptions:
+                # Check if user has this county selected (simplified - in real app you'd have user-subscription mapping)
+                subscription_data = {
+                    "endpoint": subscription.endpoint,
+                    "keys": {
+                        "p256dh": subscription.p256dh,
+                        "auth": subscription.auth
+                    }
+                }
+                
+                title = f"New Permit in {permit_county}"
+                body = f"{permit.operator} - {permit.lease_name} #{permit.well_number}"
+                url = permit.rrc_link
+                
+                if send_push_notification(subscription_data, title, body, url):
+                    notifications_sent += 1
+        
+        print(f"Sent {notifications_sent} push notifications for {len(new_permits)} new permits")
+
+def get_or_create_user_settings(session_id):
+    """Get or create user settings for a session"""
+    settings = UserSettings.query.filter_by(session_id=session_id).first()
+    if not settings:
+        settings = UserSettings(
+            session_id=session_id,
+            selected_counties=json.dumps(list(TEXAS_COUNTIES))
+        )
+        db.session.add(settings)
+        db.session.commit()
+    return settings
 
 # Texas counties list
 TEXAS_COUNTIES = (
@@ -607,6 +723,9 @@ def parse_rrc_results(soup, today):
             if new_permits:
                 db.session.commit()
                 print(f"Successfully added {len(new_permits)} new permits")
+                
+                # Send push notifications for new permits
+                send_notifications_for_new_permits(new_permits)
                 
                 # Debug: Check total permits in database
                 total_permits = Permit.query.count()
@@ -1303,6 +1422,9 @@ def generate_html():
                     <button class="btn btn-warning" onclick="exportCSV()">
                         📊 Export CSV
                     </button>
+                    <button class="btn btn-info" onclick="toggleNotifications()" id="notificationBtn">
+                        🔔 Enable Notifications
+                    </button>
                 </div>
             </div>
             
@@ -1571,7 +1693,124 @@ def generate_html():
                 if (savedTheme === 'dark') {{
                     themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
                 }}
+                
+                // Initialize push notifications
+                initializePushNotifications();
             }});
+            
+            // Push notification functions
+            let isSubscribed = false;
+            let swRegistration = null;
+            
+            function urlBase64ToUint8Array(base64String) {{
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/-/g, '+')
+                    .replace(/_/g, '/');
+                
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                
+                for (let i = 0; i < rawData.length; ++i) {{
+                    outputArray[i] = rawData.charCodeAt(i);
+                }}
+                return outputArray;
+            }}
+            
+            function updateSubscriptionOnServer(subscription) {{
+                return fetch('/api/subscribe', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json',
+                    }},
+                    body: JSON.stringify(subscription)
+                }});
+            }}
+            
+            function unsubscribeUser() {{
+                return swRegistration.pushManager.getSubscription()
+                    .then(function(subscription) {{
+                        if (subscription) {{
+                            return subscription.unsubscribe();
+                        }}
+                    }})
+                    .then(function() {{
+                        updateSubscriptionOnServer(null);
+                        console.log('User is unsubscribed.');
+                        isSubscribed = false;
+                        updateBtn();
+                    }})
+                    .catch(function(error) {{
+                        console.log('Error unsubscribing', error);
+                    }});
+            }}
+            
+            function subscribeUser() {{
+                const applicationServerKey = urlBase64ToUint8Array('{VAPID_PUBLIC_KEY}');
+                return swRegistration.pushManager.subscribe({{
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                }})
+                .then(function(subscription) {{
+                    console.log('User is subscribed.');
+                    updateSubscriptionOnServer(subscription);
+                    isSubscribed = true;
+                    updateBtn();
+                }})
+                .catch(function(err) {{
+                    console.log('Failed to subscribe the user: ', err);
+                }});
+            }}
+            
+            function updateBtn() {{
+                const btn = document.getElementById('notificationBtn');
+                if (isSubscribed) {{
+                    btn.textContent = '🔕 Disable Notifications';
+                    btn.onclick = unsubscribeUser;
+                }} else {{
+                    btn.textContent = '🔔 Enable Notifications';
+                    btn.onclick = subscribeUser;
+                }}
+            }}
+            
+            function toggleNotifications() {{
+                if (isSubscribed) {{
+                    unsubscribeUser();
+                }} else {{
+                    subscribeUser();
+                }}
+            }}
+            
+            function initializePushNotifications() {{
+                if ('serviceWorker' in navigator && 'PushManager' in window) {{
+                    console.log('Service Worker and Push is supported');
+                    
+                    navigator.serviceWorker.register('/sw.js')
+                    .then(function(swReg) {{
+                        console.log('Service Worker is registered', swReg);
+                        swRegistration = swReg;
+                        
+                        return swReg.pushManager.getSubscription();
+                    }})
+                    .then(function(subscription) {{
+                        isSubscribed = !(subscription === null);
+                        updateBtn();
+                        
+                        if (isSubscribed) {{
+                            console.log('User IS subscribed.');
+                        }} else {{
+                            console.log('User is NOT subscribed.');
+                        }}
+                    }})
+                    .catch(function(error) {{
+                        console.log('An error occurred during service worker registration', error);
+                    }});
+                }} else {{
+                    console.warn('Push messaging is not supported');
+                    const btn = document.getElementById('notificationBtn');
+                    if (btn) btn.style.display = 'none';
+                }}
+            }}
         </script>
     </body>
     </html>
@@ -1622,10 +1861,76 @@ def api_counties():
 def api_selected_counties():
     if request.method == 'POST':
         data = request.get_json()
-        session['selected_counties'] = data.get('counties', [])
+        counties = data.get('counties', [])
+        
+        # Store in database for push notifications
+        session_id = session.get('session_id', 'default')
+        settings = get_or_create_user_settings(session_id)
+        settings.selected_counties = json.dumps(counties)
+        db.session.commit()
+        
+        # Also store in session for backward compatibility
+        session['selected_counties'] = counties
         return jsonify({'success': True})
     else:
+        # Get from database first, fallback to session
+        session_id = session.get('session_id', 'default')
+        settings = UserSettings.query.filter_by(session_id=session_id).first()
+        if settings and settings.selected_counties:
+            try:
+                return jsonify(json.loads(settings.selected_counties))
+            except:
+                pass
         return jsonify(session.get('selected_counties', []))
+
+@app.route('/api/subscribe', methods=['POST'])
+def api_subscribe():
+    """Subscribe to push notifications"""
+    data = request.get_json()
+    
+    if not data or not data.get('endpoint'):
+        return jsonify({'error': 'Missing subscription data'}), 400
+    
+    try:
+        # Store subscription
+        subscription = Subscription(
+            endpoint=data['endpoint'],
+            p256dh=data.get('keys', {}).get('p256dh', ''),
+            auth=data.get('keys', {}).get('auth', ''),
+            user_agent=request.headers.get('User-Agent', '')
+        )
+        
+        # Remove existing subscription with same endpoint
+        Subscription.query.filter_by(endpoint=data['endpoint']).delete()
+        
+        db.session.add(subscription)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Subscribed to notifications'})
+    except Exception as e:
+        print(f"Error subscribing: {e}")
+        return jsonify({'error': 'Failed to subscribe'}), 500
+
+@app.route('/api/unsubscribe', methods=['POST'])
+def api_unsubscribe():
+    """Unsubscribe from push notifications"""
+    data = request.get_json()
+    
+    if not data or not data.get('endpoint'):
+        return jsonify({'error': 'Missing endpoint'}), 400
+    
+    try:
+        Subscription.query.filter_by(endpoint=data['endpoint']).delete()
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Unsubscribed from notifications'})
+    except Exception as e:
+        print(f"Error unsubscribing: {e}")
+        return jsonify({'error': 'Failed to unsubscribe'}), 500
+
+@app.route('/api/vapid-public-key')
+def api_vapid_public_key():
+    """Get VAPID public key for push notifications"""
+    return jsonify({'publicKey': VAPID_PUBLIC_KEY})
 
 @app.route('/export/csv')
 def export_csv():
@@ -1655,6 +1960,29 @@ def export_csv():
         download_name=f'rrc_permits_{datetime.now().strftime("%Y%m%d")}.csv'
     )
 
+# Automatic scraping scheduler
+def start_scraping_scheduler():
+    """Start the automatic scraping scheduler"""
+    def scrape_periodically():
+        while True:
+            try:
+                print(f"Starting automatic scrape at {datetime.now()}")
+                scrape_rrc_permits()
+                print(f"Automatic scrape completed at {datetime.now()}")
+            except Exception as e:
+                print(f"Error in automatic scrape: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Wait 5 minutes (300 seconds) before next scrape
+            time.sleep(300)
+    
+    # Start the scheduler in a background thread
+    scheduler_thread = threading.Thread(target=scrape_periodically)
+    scheduler_thread.daemon = True
+    scheduler_thread.start()
+    print("Automatic scraping scheduler started (every 5 minutes)")
+
 # Initialize database when the module is imported (works with Gunicorn)
 with app.app_context():
     try:
@@ -1665,6 +1993,9 @@ with app.app_context():
         result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
         tables = [row[0] for row in result]
         print(f"Database tables: {tables}")
+        
+        # Start automatic scraping scheduler
+        start_scraping_scheduler()
         
     except Exception as e:
         print(f"Database initialization error: {e}")
