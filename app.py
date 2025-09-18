@@ -485,15 +485,23 @@ def parse_rrc_results(soup, today):
                     lease_name = cells[4].get_text(strip=True) if len(cells) > 4 else ''
                     well_number = cells[5].get_text(strip=True) if len(cells) > 5 else ''
                     
-                    # Find county in later columns
+                    # Find county in later columns (typically column 7 or 8)
                     county = ''
-                    for cell in cells[6:]:
+                    for i, cell in enumerate(cells[6:]):
                         cell_text = cell.get_text(strip=True)
+                        print(f"  Column {i+6}: '{cell_text}'")
                         if cell_text:
                             normalized_county = normalize_county_name(cell_text)
-                            if normalized_county:
+                            if normalized_county and normalized_county in TEXAS_COUNTIES:
                                 county = normalized_county
+                                print(f"  Found county: {county}")
                                 break
+                    
+                    # If no county found, try to extract from operator or lease name
+                    if not county:
+                        print(f"  No county found in table columns, checking operator/lease")
+                        # This is a fallback - we'll need to improve this
+                        county = 'UNKNOWN'
                     
                     # Skip header rows or invalid data
                     if not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
@@ -574,16 +582,12 @@ def generate_html():
     selected_counties = session.get('selected_counties', [])
     
     # Apply filters
-    county_filter = request.args.get('county', '')
     search_term = request.args.get('search', '')
     sort_by = request.args.get('sort', 'newest')
     
-    print(f"DEBUG: Filters - county: '{county_filter}', search: '{search_term}', sort: '{sort_by}'")
+    print(f"DEBUG: Filters - search: '{search_term}', sort: '{sort_by}'")
     
     filtered_permits = permits
-    
-    if county_filter and county_filter != 'All Counties':
-        filtered_permits = [p for p in filtered_permits if p.county.upper() == county_filter.upper()]
     
     if search_term:
         search_lower = search_term.lower()
@@ -1031,14 +1035,6 @@ def generate_html():
             <div class="controls">
                 <div class="control-row">
                     <div class="control-group">
-                        <label for="county">County:</label>
-                        <select id="county" name="county">
-                            <option value="">All Counties</option>
-                            {''.join([f'<option value="{county}" {"selected" if county == county_filter else ""}>{county}</option>' for county in counties])}
-                        </select>
-                    </div>
-                    
-                    <div class="control-group">
                         <label for="sort">Sort By:</label>
                         <select id="sort" name="sort">
                             <option value="newest" {"selected" if sort_by == "newest" else ""}>Most Recent</option>
@@ -1172,13 +1168,9 @@ def generate_html():
         
         <script>
             function applyFilters() {{
-                const county = document.getElementById('county').value;
-                const search = document.getElementById('search').value;
                 const sort = document.getElementById('sort').value;
                 
                 const params = new URLSearchParams();
-                if (county) params.append('county', county);
-                if (search) params.append('search', search);
                 if (sort) params.append('sort', sort);
                 
                 window.location.href = '?' + params.toString();
