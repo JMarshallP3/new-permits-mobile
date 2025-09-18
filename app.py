@@ -668,417 +668,608 @@ def generate_html():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Texas Railroad Commission Drilling Permits</title>
+        <title>New Permits</title>
         <style>
-            * {{
+            /* Import premium fonts */
+            @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=SF+Pro+Text:wght@300;400;500;600&display=swap');
+            
+            :root {
+                --bg-primary: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                --bg-secondary: rgba(255, 255, 255, 0.9);
+                --bg-card: rgba(255, 255, 255, 0.8);
+                --text-primary: #1a202c;
+                --text-secondary: #64748b;
+                --border-color: rgba(255, 255, 255, 0.3);
+                --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.15);
+            }
+            
+            [data-theme="dark"] {
+                --bg-primary: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+                --bg-secondary: rgba(30, 41, 59, 0.9);
+                --bg-card: rgba(30, 41, 59, 0.8);
+                --text-primary: #f1f5f9;
+                --text-secondary: #94a3b8;
+                --border-color: rgba(255, 255, 255, 0.1);
+                --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.4);
+            }
+            
+            * {
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-            }}
+            }
             
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: #f5f5f5;
-                color: #333;
+            body {
+                font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: var(--bg-primary);
+                color: var(--text-primary);
                 line-height: 1.6;
-            }}
+                font-size: 16px;
+                font-weight: 400;
+                -webkit-font-smoothing: antialiased;
+                -moz-osx-font-smoothing: grayscale;
+                min-height: 100vh;
+                transition: all 0.3s ease;
+            }
             
-            .container {{
+            .container {
                 max-width: 1200px;
                 margin: 0 auto;
-                padding: 20px;
-            }}
+                padding: 2rem;
+            }
             
-            .header {{
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                padding: 30px 0;
+            .header {
                 text-align: center;
-                margin-bottom: 30px;
-                border-radius: 15px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            }}
+                margin-bottom: 3rem;
+                padding: 2rem 0;
+            }
             
-            .header h1 {{
-                font-size: 2.5rem;
-                margin-bottom: 10px;
+            .header h1 {
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 3.5rem;
                 font-weight: 700;
-            }}
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                margin-bottom: 0.5rem;
+                letter-spacing: -0.02em;
+            }
             
-            .header p {{
-                font-size: 1.1rem;
-                opacity: 0.9;
-            }}
+            .header p {
+                font-size: 1.25rem;
+                color: var(--text-secondary);
+                font-weight: 400;
+                letter-spacing: 0.01em;
+            }
             
-            .controls {{
-                background: white;
-                padding: 25px;
-                border-radius: 15px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                margin-bottom: 30px;
-            }}
+            .theme-toggle {
+                position: fixed;
+                top: 2rem;
+                right: 2rem;
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
+                border: 1px solid var(--border-color);
+                border-radius: 50px;
+                padding: 0.75rem;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                box-shadow: var(--shadow);
+                z-index: 1000;
+            }
             
-            .control-row {{
+            .theme-toggle:hover {
+                transform: scale(1.1);
+                box-shadow: var(--shadow-hover);
+            }
+            
+            .theme-toggle svg {
+                width: 24px;
+                height: 24px;
+                color: var(--text-primary);
+            }
+            
+            .controls {
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                padding: 2rem;
+                margin-bottom: 2rem;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--border-color);
+            }
+            
+            .control-row {
                 display: flex;
-                flex-wrap: wrap;
-                gap: 15px;
+                gap: 1.5rem;
+                margin-bottom: 1.5rem;
                 align-items: center;
-                margin-bottom: 20px;
-            }}
+            }
             
-            .control-group {{
+            .control-group {
                 display: flex;
                 flex-direction: column;
-                min-width: 200px;
-            }}
+                gap: 0.5rem;
+            }
             
-            .control-group label {{
-                font-weight: 600;
-                margin-bottom: 5px;
-                color: #555;
-            }}
+            .control-group label {
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: var(--text-secondary);
+                letter-spacing: 0.025em;
+            }
             
-            .control-group select,
-            .control-group input {{
-                padding: 12px;
-                border: 2px solid #e1e5e9;
-                border-radius: 8px;
-                font-size: 16px;
-                transition: border-color 0.3s;
-            }}
+            .control-group select {
+                padding: 0.75rem 1rem;
+                border: 2px solid var(--border-color);
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 400;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                cursor: pointer;
+            }
             
-            .control-group select:focus,
-            .control-group input:focus {{
+            .control-group select:focus {
                 outline: none;
                 border-color: #667eea;
-            }}
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
             
-            .buttons {{
+            .buttons {
                 display: flex;
+                gap: 1rem;
                 flex-wrap: wrap;
-                gap: 15px;
-                margin-top: 20px;
-            }}
+            }
             
-            .btn {{
-                padding: 12px 24px;
+            .btn {
+                padding: 0.875rem 1.5rem;
                 border: none;
-                border-radius: 8px;
-                font-size: 16px;
-                font-weight: 600;
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 500;
                 cursor: pointer;
-                transition: all 0.3s;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 text-decoration: none;
                 display: inline-flex;
                 align-items: center;
-                gap: 8px;
-            }}
+                gap: 0.5rem;
+                letter-spacing: 0.025em;
+                position: relative;
+                overflow: hidden;
+            }
             
-            .btn-primary {{
-                background: #667eea;
+            .btn::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+                transition: left 0.5s;
+            }
+            
+            .btn:hover::before {
+                left: 100%;
+            }
+            
+            .btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
-            }}
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            }
             
-            .btn-primary:hover {{
-                background: #5a6fd8;
+            .btn-primary:hover {
                 transform: translateY(-2px);
-            }}
+                box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            }
             
-            .btn-success {{
-                background: #28a745;
+            .btn-success {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                 color: white;
-            }}
+                box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+            }
             
-            .btn-success:hover {{
-                background: #218838;
+            .btn-success:hover {
                 transform: translateY(-2px);
-            }}
+                box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            }
             
-            .btn-info {{
-                background: #17a2b8;
+            .btn-info {
+                background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
                 color: white;
-            }}
+                box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+            }
             
-            .btn-info:hover {{
-                background: #138496;
+            .btn-info:hover {
                 transform: translateY(-2px);
-            }}
+                box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
+            }
             
-            .btn-warning {{
-                background: #ffc107;
-                color: #212529;
-            }}
+            .btn-warning {
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+                color: white;
+                box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+            }
             
-            .btn-warning:hover {{
-                background: #e0a800;
+            .btn-warning:hover {
                 transform: translateY(-2px);
-            }}
+                box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+            }
             
-            .status {{
-                background: white;
-                padding: 20px;
-                border-radius: 15px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                margin-bottom: 30px;
-            }}
+            .status {
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                padding: 2rem;
+                margin-bottom: 2rem;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--border-color);
+            }
             
-            .status h3 {{
-                margin-bottom: 15px;
-                color: #333;
-            }}
+            .status h3 {
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 1.5rem;
+                letter-spacing: -0.01em;
+            }
             
-            .status-item {{
+            .status-item {
                 display: flex;
                 justify-content: space-between;
-                padding: 8px 0;
-                border-bottom: 1px solid #eee;
-            }}
+                align-items: center;
+                padding: 1rem 0;
+                border-bottom: 1px solid var(--border-color);
+            }
             
-            .status-item:last-child {{
+            .status-item:last-child {
                 border-bottom: none;
-            }}
+            }
             
-            .status-label {{
+            .status-label {
+                font-size: 1rem;
+                font-weight: 500;
+                color: var(--text-secondary);
+            }
+            
+            .status-value {
+                font-size: 1rem;
                 font-weight: 600;
-                color: #555;
-            }}
+                color: var(--text-primary);
+            }
             
-            .status-value {{
-                color: #333;
-            }}
-            
-            .permits-grid {{
+            .permits-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 20px;
-                margin-top: 30px;
-            }}
+                gap: 1.5rem;
+                margin-top: 2rem;
+            }
             
-            .permit-card {{
-                background: white;
-                border-radius: 15px;
-                padding: 25px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                transition: transform 0.3s, box-shadow 0.3s;
-            }}
-            
-            .permit-card:hover {{
-                transform: translateY(-5px);
-                box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-            }}
-            
-            .permit-header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 15px;
-            }}
-            
-            .permit-county {{
-                background: #667eea;
-                color: white;
-                padding: 6px 12px;
+            .permit-card {
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
                 border-radius: 20px;
-                font-size: 12px;
-                font-weight: 600;
-                text-transform: uppercase;
-            }}
+                padding: 1.5rem;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--border-color);
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                position: relative;
+                overflow: hidden;
+            }
             
-            .permit-date {{
-                color: #666;
-                font-size: 14px;
-            }}
-            
-            .permit-info {{
-                margin-bottom: 20px;
-            }}
-            
-            .permit-info h3 {{
-                color: #333;
-                margin-bottom: 10px;
-                font-size: 1.2rem;
-            }}
-            
-            .permit-detail {{
-                margin-bottom: 8px;
-                display: flex;
-                align-items: center;
-            }}
-            
-            .permit-detail strong {{
-                min-width: 80px;
-                color: #555;
-                font-size: 14px;
-            }}
-            
-            .permit-detail span {{
-                color: #333;
-                font-size: 14px;
-            }}
-            
-            .permit-actions {{
-                display: flex;
-                gap: 10px;
-            }}
-            
-            .btn-sm {{
-                padding: 8px 16px;
-                font-size: 14px;
-            }}
-            
-            .btn-outline-primary {{
-                background: transparent;
-                color: #667eea;
-                border: 2px solid #667eea;
-            }}
-            
-            .btn-outline-primary:hover {{
-                background: #667eea;
-                color: white;
-            }}
-            
-            .btn-outline-danger {{
-                background: transparent;
-                color: #dc3545;
-                border: 2px solid #dc3545;
-            }}
-            
-            .btn-outline-danger:hover {{
-                background: #dc3545;
-                color: white;
-            }}
-            
-            .no-permits {{
-                text-align: center;
-                padding: 60px 20px;
-                color: #666;
-                background: white;
-                border-radius: 15px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-            }}
-            
-            .no-permits h3 {{
-                margin-bottom: 15px;
-                color: #333;
-            }}
-            
-            .loading {{
-                text-align: center;
-                padding: 40px;
-                color: #666;
-            }}
-            
-            .spinner {{
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #667eea;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 0 auto 20px;
-            }}
-            
-            @keyframes spin {{
-                0% {{ transform: rotate(0deg); }}
-                100% {{ transform: rotate(360deg); }}
-            }}
-            
-            .county-selector {{
-                position: fixed;
+            .permit-card::before {
+                content: '';
+                position: absolute;
                 top: 0;
                 left: 0;
                 right: 0;
-                bottom: 0;
-                background: rgba(0,0,0,0.5);
-                z-index: 1000;
-                display: none;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            }}
+                height: 4px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
             
-            .county-modal {{
-                background: white;
-                border-radius: 15px;
-                padding: 30px;
+            .permit-card:hover {
+                transform: translateY(-8px) scale(1.02);
+                box-shadow: var(--shadow-hover);
+            }
+            
+            .permit-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+            }
+            
+            .permit-county {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-size: 0.875rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            
+            .permit-date {
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+                font-weight: 500;
+            }
+            
+            .permit-info h3 {
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 1rem;
+                letter-spacing: -0.01em;
+            }
+            
+            .permit-detail {
+                margin-bottom: 0.75rem;
+                display: flex;
+                align-items: center;
+            }
+            
+            .permit-detail strong {
+                min-width: 80px;
+                color: var(--text-secondary);
+                font-size: 0.875rem;
+                font-weight: 500;
+            }
+            
+            .permit-detail span {
+                color: var(--text-primary);
+                font-size: 0.875rem;
+                font-weight: 400;
+            }
+            
+            .permit-actions {
+                display: flex;
+                gap: 0.75rem;
+                margin-top: 1rem;
+            }
+            
+            .btn-sm {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+            
+            .btn-outline-primary {
+                background: transparent;
+                color: #667eea;
+                border: 2px solid #667eea;
+            }
+            
+            .btn-outline-primary:hover {
+                background: #667eea;
+                color: white;
+            }
+            
+            .btn-outline-danger {
+                background: transparent;
+                color: #ef4444;
+                border: 2px solid #ef4444;
+            }
+            
+            .btn-outline-danger:hover {
+                background: #ef4444;
+                color: white;
+            }
+            
+            .no-permits {
+                text-align: center;
+                padding: 4rem 2rem;
+                color: var(--text-secondary);
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                box-shadow: var(--shadow);
+                border: 1px solid var(--border-color);
+            }
+            
+            .no-permits h3 {
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 0.5rem;
+            }
+            
+            .no-permits p {
+                font-size: 1rem;
+                color: var(--text-secondary);
+            }
+            
+            /* County Selector Modal */
+            .county-selector {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                backdrop-filter: blur(10px);
+                display: none;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+                padding: 2rem;
+            }
+            
+            .county-modal {
+                background: var(--bg-card);
+                backdrop-filter: blur(20px);
+                border-radius: 24px;
+                padding: 2rem;
                 max-width: 600px;
                 width: 100%;
                 max-height: 80vh;
                 overflow-y: auto;
-            }}
+                box-shadow: var(--shadow-hover);
+                border: 1px solid var(--border-color);
+            }
             
-            .county-modal h3 {{
-                margin-bottom: 20px;
-                color: #333;
-            }}
+            .county-modal h3 {
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 1.5rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 1.5rem;
+                text-align: center;
+                letter-spacing: -0.01em;
+            }
             
-            .county-grid {{
+            .county-search-container {
+                margin-bottom: 1.5rem;
+            }
+            
+            .county-search-input {
+                width: 100%;
+                padding: 0.875rem 1rem;
+                border: 2px solid var(--border-color);
+                border-radius: 12px;
+                font-size: 1rem;
+                font-weight: 400;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .county-search-input:focus {
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }
+            
+            .modal-actions {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+                justify-content: center;
+            }
+            
+            .county-actions {
+                display: flex;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+                justify-content: center;
+            }
+            
+            .county-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 10px;
-                margin-bottom: 20px;
-            }}
+                gap: 0.75rem;
+                max-height: 300px;
+                overflow-y: auto;
+                padding: 1rem;
+                background: var(--bg-secondary);
+                border-radius: 12px;
+            }
             
-            .county-item {{
+            .county-item {
                 display: flex;
                 align-items: center;
-                gap: 8px;
-            }}
+                gap: 0.5rem;
+                padding: 0.5rem;
+                border-radius: 8px;
+                transition: all 0.2s ease;
+            }
             
-            .county-item input[type="checkbox"] {{
+            .county-item:hover {
+                background: rgba(102, 126, 234, 0.1);
+            }
+            
+            .county-item input[type="checkbox"] {
                 width: 18px;
                 height: 18px;
-            }}
+                accent-color: #667eea;
+            }
             
-            .county-item label {{
-                font-size: 14px;
+            .county-item label {
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: var(--text-primary);
                 cursor: pointer;
-            }}
+                flex: 1;
+            }
             
-            .modal-actions {{
-                display: flex;
-                gap: 15px;
-                justify-content: flex-end;
-                margin-top: 20px;
-            }}
-            
-            @media (max-width: 768px) {{
-                .container {{
-                    padding: 10px;
-                }}
+            /* Responsive Design */
+            @media (max-width: 768px) {
+                .container {
+                    padding: 1rem;
+                }
                 
-                .header h1 {{
-                    font-size: 2rem;
-                }}
+                .header h1 {
+                    font-size: 2.5rem;
+                }
                 
-                .control-row {{
+                .controls, .status {
+                    padding: 1.5rem;
+                }
+                
+                .control-row {
                     flex-direction: column;
-                    align-items: stretch;
-                }}
+                    gap: 1rem;
+                }
                 
-                .control-group {{
-                    min-width: auto;
-                }}
-                
-                .buttons {{
+                .buttons {
                     flex-direction: column;
-                }}
+                }
                 
-                .permits-grid {{
+                .permits-grid {
                     grid-template-columns: 1fr;
-                }}
+                }
                 
-                .permit-actions {{
-                    flex-direction: column;
-                }}
+                .county-modal {
+                    margin: 1rem;
+                    max-height: 90vh;
+                }
                 
-                .county-grid {{
+                .county-grid {
                     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                }}
-            }}
+                }
+                
+                .theme-toggle {
+                    top: 1rem;
+                    right: 1rem;
+                }
+            }
+            
+            /* Smooth animations */
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            .permit-card {
+                animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .controls, .status {
+                animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            
+            .header {
+                animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1);
+            }
         </style>
     </head>
     <body>
+        <!-- Theme Toggle Button -->
+        <div class="theme-toggle" onclick="toggleTheme()">
+            <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
+        </div>
+        
         <div class="container">
             <div class="header">
                 <h1>New Permits</h1>
@@ -1179,7 +1370,7 @@ def generate_html():
             ''' if filtered_permits else '''
             <div class="no-permits">
                 <h3>📋 No permits found</h3>
-                <p>Try adjusting your search criteria or scrape for new permits.</p>
+                <p>Try adjusting your search criteria or update for new permits.</p>
             </div>
             '''}
             
@@ -1350,6 +1541,36 @@ def generate_html():
                 }})
                 .catch(error => console.error('Error updating status:', error));
             }}, 10000);
+            
+            // Theme toggle functionality
+            function toggleTheme() {{
+                const body = document.body;
+                const themeIcon = document.getElementById('theme-icon');
+                const currentTheme = body.getAttribute('data-theme');
+                
+                if (currentTheme === 'dark') {{
+                    body.setAttribute('data-theme', 'light');
+                    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+                    localStorage.setItem('theme', 'light');
+                }} else {{
+                    body.setAttribute('data-theme', 'dark');
+                    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+                    localStorage.setItem('theme', 'dark');
+                }}
+            }}
+            
+            // Load saved theme on page load
+            document.addEventListener('DOMContentLoaded', function() {{
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                const body = document.body;
+                const themeIcon = document.getElementById('theme-icon');
+                
+                body.setAttribute('data-theme', savedTheme);
+                
+                if (savedTheme === 'dark') {{
+                    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+                }}
+            }});
         </script>
     </body>
     </html>
