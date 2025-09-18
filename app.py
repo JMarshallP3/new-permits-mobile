@@ -216,114 +216,67 @@ def scrape_rrc_permits():
                     all_inputs = driver.find_elements(By.TAG_NAME, "input")
                     print(f"Found {len(all_inputs)} input fields on the page")
                     
-                    # Find and fill the Submitted Date Begin field
+                    # Find and fill the Submitted Date From field
                     try:
-                        # Try multiple possible field names
-                        begin_field = None
-                        possible_begin_names = ["submittedDateBegin", "submitted_date_begin", "dateBegin", "date_begin"]
-                        
-                        for name in possible_begin_names:
-                            try:
-                                begin_field = driver.find_element(By.NAME, name)
-                                print(f"Found Submitted Date Begin field with name: {name}")
-                                break
-                            except:
-                                continue
-                        
-                        if begin_field:
-                            begin_field.clear()
-                            begin_field.send_keys(date_str)
-                            print(f"✅ Filled Submitted Date Begin: {date_str}")
-                        else:
-                            print("❌ Could not find Submitted Date Begin field")
-                            # List all input fields for debugging
-                            for inp in all_inputs:
-                                if inp.get_attribute('name'):
-                                    print(f"  Input field: name='{inp.get_attribute('name')}', type='{inp.get_attribute('type')}', placeholder='{inp.get_attribute('placeholder')}'")
-                            
+                        begin_field = driver.find_element(By.NAME, "submittedDateFrom")
+                        begin_field.clear()
+                        begin_field.send_keys(date_str)
+                        print(f"✅ Filled Submitted Date From: {date_str}")
                     except Exception as e:
-                        print(f"Error filling Submitted Date Begin field: {e}")
+                        print(f"❌ Could not find submittedDateFrom field: {e}")
+                        # List all input fields for debugging
+                        for inp in all_inputs:
+                            if inp.get_attribute('name'):
+                                print(f"  Input field: name='{inp.get_attribute('name')}', type='{inp.get_attribute('type')}', placeholder='{inp.get_attribute('placeholder')}'")
+                            
+                    # Find and fill the Submitted Date To field
+                    try:
+                        end_field = driver.find_element(By.NAME, "submittedDateTo")
+                        end_field.clear()
+                        end_field.send_keys(date_str)
+                        print(f"✅ Filled Submitted Date To: {date_str}")
+                    except Exception as e:
+                        print(f"❌ Could not find submittedDateTo field: {e}")
                     
-                    # Find and fill the Submitted Date End field
+                    # Find and click the Search button
                     try:
-                        # Try multiple possible field names
-                        end_field = None
-                        possible_end_names = ["submittedDateEnd", "submitted_date_end", "dateEnd", "date_end"]
+                        # Look for the Search button by name="search"
+                        search_button = driver.find_element(By.NAME, "search")
+                        print("✅ Found Search button by name='search', clicking...")
+                        search_button.click()
                         
-                        for name in possible_end_names:
-                            try:
-                                end_field = driver.find_element(By.NAME, name)
-                                print(f"Found Submitted Date End field with name: {name}")
-                                break
-                            except:
-                                continue
+                        # Wait for results page to load
+                        WebDriverWait(driver, 20).until(
+                            lambda driver: driver.current_url != search_url
+                        )
                         
-                        if end_field:
-                            end_field.clear()
-                            end_field.send_keys(date_str)
-                            print(f"✅ Filled Submitted Date End: {date_str}")
+                        print(f"After search, current URL: {driver.current_url}")
+                        
+                        # Check if we got redirected to login
+                        if 'login' in driver.current_url.lower():
+                            print("⚠️ Redirected to login page - this shouldn't happen with public form")
+                            scraping_status['last_count'] = 0
+                            return
+                        
+                        # Parse the results page
+                        soup = BeautifulSoup(driver.page_source, 'html.parser')
+                        permits = parse_rrc_results(soup, today)
+                        
+                        if permits:
+                            print(f"✅ Found {len(permits)} permits via Selenium")
+                            scraping_status['last_count'] = len(permits)
+                            return
                         else:
-                            print("❌ Could not find Submitted Date End field")
+                            print("No permits found in results")
                             
                     except Exception as e:
-                        print(f"Error filling Submitted Date End field: {e}")
-                    
-                    # Find and click the Submit button
-                    try:
-                        # Look for the Submit button specifically
-                        submit_button = None
-                        
-                        # Try multiple ways to find the submit button
-                        try:
-                            submit_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Submit']")
-                            print("Found Submit button by value='Submit'")
-                        except:
-                            try:
-                                submit_button = driver.find_element(By.XPATH, "//input[@type='submit']")
-                                print(f"Found Submit button with value: '{submit_button.get_attribute('value')}'")
-                            except:
-                                # Look for any button with "Submit" text
-                                submit_button = driver.find_element(By.XPATH, "//input[contains(@value, 'Submit')]")
-                                print(f"Found Submit button by partial match: '{submit_button.get_attribute('value')}'")
-                        
-                        if submit_button:
-                            print("✅ Found Submit button, clicking...")
-                            submit_button.click()
-                            
-                            # Wait for results page to load
-                            WebDriverWait(driver, 20).until(
-                                lambda driver: driver.current_url != search_url
-                            )
-                            
-                            print(f"After submit, current URL: {driver.current_url}")
-                            
-                            # Check if we got redirected to login
-                            if 'login' in driver.current_url.lower():
-                                print("⚠️ Redirected to login page - this shouldn't happen with public form")
-                                scraping_status['last_count'] = 0
-                                return
-                            
-                            # Parse the results page
-                            soup = BeautifulSoup(driver.page_source, 'html.parser')
-                            permits = parse_rrc_results(soup, today)
-                            
-                            if permits:
-                                print(f"✅ Found {len(permits)} permits via Selenium")
-                                scraping_status['last_count'] = len(permits)
-                                return
-                            else:
-                                print("No permits found in results")
-                        else:
-                            print("❌ Could not find Submit button")
-                            
-                    except Exception as e:
-                        print(f"Error clicking Submit button: {e}")
+                        print(f"Error clicking Search button: {e}")
                         # Try alternative button selectors
                         try:
                             submit_buttons = driver.find_elements(By.XPATH, "//input[@type='submit']")
                             print(f"Found {len(submit_buttons)} submit buttons")
                             for i, btn in enumerate(submit_buttons):
-                                print(f"Button {i}: value='{btn.get_attribute('value')}', text='{btn.text}'")
+                                print(f"Button {i}: name='{btn.get_attribute('name')}', value='{btn.get_attribute('value')}', text='{btn.text}'")
                             
                             # Click the first submit button that's not "Log In"
                             for btn in submit_buttons:
@@ -396,7 +349,7 @@ def scrape_rrc_permits():
                         for input_field in form.find_all(['input', 'select', 'textarea']):
                             name = input_field.get('name')
                             if name:
-                                if name == 'submittedDateBegin' or name == 'submittedDateEnd':
+                                if name == 'submittedDateFrom' or name == 'submittedDateTo':
                                     form_data[name] = date_str
                                     print(f"Setting {name} to {date_str}")
                                 elif input_field.get('type') == 'submit':
