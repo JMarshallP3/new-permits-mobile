@@ -19,6 +19,8 @@ db = SQLAlchemy(app)
 
 # Database model
 class Permit(db.Model):
+    __tablename__ = 'permits'  # Explicitly set table name
+    
     id = db.Column(db.Integer, primary_key=True)
     county = db.Column(db.String(100), nullable=False)
     operator = db.Column(db.String(200), nullable=False)
@@ -1101,8 +1103,19 @@ def dismiss_permit(permit_id):
 
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
-        print("Database initialized")
+        try:
+            db.create_all()
+            print("Database initialized successfully")
+            
+            # Test database connection
+            result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
+            tables = [row[0] for row in result]
+            print(f"Database tables: {tables}")
+            
+        except Exception as e:
+            print(f"Database initialization error: {e}")
+            import traceback
+            traceback.print_exc()
     
     port = int(os.environ.get('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
