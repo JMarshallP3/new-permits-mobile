@@ -39,3 +39,71 @@ self.addEventListener('activate', event => {
     })
   );
 });
+
+// Push notification event
+self.addEventListener('push', event => {
+  const options = {
+    body: event.data ? event.data.text() : 'New permit found in your selected county!',
+    icon: '/static/icon-512.png',
+    badge: '/static/apple-touch-icon.png',
+    vibrate: [200, 100, 200],
+    data: {
+      dateOfArrival: Date.now(),
+      primaryKey: 1
+    },
+    actions: [
+      {
+        action: 'explore',
+        title: 'View Permit',
+        icon: '/static/icon-512.png'
+      },
+      {
+        action: 'close',
+        title: 'Close',
+        icon: '/static/icon-512.png'
+      }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification('New Permits Alert', options)
+  );
+});
+
+// Notification click event
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  if (event.action === 'explore') {
+    event.waitUntil(
+      clients.openWindow('/')
+    );
+  }
+});
+
+// Background sync for periodic updates
+self.addEventListener('sync', event => {
+  if (event.tag === 'background-sync') {
+    event.waitUntil(doBackgroundSync());
+  }
+});
+
+async function doBackgroundSync() {
+  try {
+    const response = await fetch('/api/check-new-permits');
+    const data = await response.json();
+    
+    if (data.newPermits && data.newPermits.length > 0) {
+      // Send notification for new permits
+      self.registration.showNotification('New Permits Found!', {
+        body: `${data.newPermits.length} new permit(s) found in your selected counties`,
+        icon: '/static/icon-512.png',
+        badge: '/static/apple-touch-icon.png',
+        vibrate: [200, 100, 200],
+        tag: 'new-permits'
+      });
+    }
+  } catch (error) {
+    console.error('Background sync failed:', error);
+  }
+}

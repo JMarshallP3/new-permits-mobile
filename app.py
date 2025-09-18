@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, session, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import requests
 from bs4 import BeautifulSoup
 import threading
@@ -83,6 +83,7 @@ def scrape_rrc_permits():
     
     scraping_status['is_running'] = True
     scraping_status['error'] = None
+    scraping_status['last_run'] = datetime.now()
     
     try:
         print("Starting RRC permit scraping...")
@@ -1653,13 +1654,6 @@ def export_csv():
         as_attachment=True,
         download_name=f'rrc_permits_{datetime.now().strftime("%Y%m%d")}.csv'
     )
-
-@app.route('/api/dismiss/<int:permit_id>', methods=['POST'])
-def dismiss_permit(permit_id):
-    permit = Permit.query.get_or_404(permit_id)
-    db.session.delete(permit)
-    db.session.commit()
-    return jsonify({'success': True})
 
 # Initialize database when the module is imported (works with Gunicorn)
 with app.app_context():
