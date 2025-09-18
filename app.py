@@ -11,7 +11,19 @@ import io
 import json
 import sqlite3
 from urllib.parse import urljoin
-from pywebpush import webpush, WebPushException
+# Optional push notification imports
+try:
+    from pywebpush import webpush, WebPushException
+    PUSH_NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    print("Warning: pywebpush not available. Push notifications disabled.")
+    PUSH_NOTIFICATIONS_AVAILABLE = False
+    # Create dummy classes for compatibility
+    class WebPushException(Exception):
+        pass
+    def webpush(*args, **kwargs):
+        raise WebPushException("Push notifications not available")
+
 import base64
 
 app = Flask(__name__)
@@ -73,6 +85,10 @@ VAPID_CLAIMS = {
 
 def send_push_notification(subscription, title, body, url=None):
     """Send push notification to a subscription"""
+    if not PUSH_NOTIFICATIONS_AVAILABLE:
+        print("Push notifications not available - skipping notification")
+        return False
+        
     try:
         payload = json.dumps({
             "title": title,
@@ -1782,34 +1798,50 @@ def generate_html():
             }}
             
             function initializePushNotifications() {{
-                if ('serviceWorker' in navigator && 'PushManager' in window) {{
-                    console.log('Service Worker and Push is supported');
+                // Check if push notifications are available on the server
+                fetch('/api/vapid-public-key')
+                .then(response => {{
+                    if (!response.ok) {{
+                        console.warn('Push notifications not available on server');
+                        const btn = document.getElementById('notificationBtn');
+                        if (btn) btn.style.display = 'none';
+                        return;
+                    }}
                     
-                    navigator.serviceWorker.register('/sw.js')
-                    .then(function(swReg) {{
-                        console.log('Service Worker is registered', swReg);
-                        swRegistration = swReg;
+                    if ('serviceWorker' in navigator && 'PushManager' in window) {{
+                        console.log('Service Worker and Push is supported');
                         
-                        return swReg.pushManager.getSubscription();
-                    }})
-                    .then(function(subscription) {{
-                        isSubscribed = !(subscription === null);
-                        updateBtn();
-                        
-                        if (isSubscribed) {{
-                            console.log('User IS subscribed.');
-                        }} else {{
-                            console.log('User is NOT subscribed.');
-                        }}
-                    }})
-                    .catch(function(error) {{
-                        console.log('An error occurred during service worker registration', error);
-                    }});
-                }} else {{
-                    console.warn('Push messaging is not supported');
+                        navigator.serviceWorker.register('/sw.js')
+                        .then(function(swReg) {{
+                            console.log('Service Worker is registered', swReg);
+                            swRegistration = swReg;
+                            
+                            return swReg.pushManager.getSubscription();
+                        }})
+                        .then(function(subscription) {{
+                            isSubscribed = !(subscription === null);
+                            updateBtn();
+                            
+                            if (isSubscribed) {{
+                                console.log('User IS subscribed.');
+                            }} else {{
+                                console.log('User is NOT subscribed.');
+                            }}
+                        }})
+                        .catch(function(error) {{
+                            console.log('An error occurred during service worker registration', error);
+                        }});
+                    }} else {{
+                        console.warn('Push messaging is not supported');
+                        const btn = document.getElementById('notificationBtn');
+                        if (btn) btn.style.display = 'none';
+                    }}
+                }})
+                .catch(function(error) {{
+                    console.warn('Failed to check push notification availability:', error);
                     const btn = document.getElementById('notificationBtn');
                     if (btn) btn.style.display = 'none';
-                }}
+                }});
             }}
         </script>
     </body>
@@ -1886,6 +1918,9 @@ def api_selected_counties():
 @app.route('/api/subscribe', methods=['POST'])
 def api_subscribe():
     """Subscribe to push notifications"""
+    if not PUSH_NOTIFICATIONS_AVAILABLE:
+        return jsonify({'error': 'Push notifications not available'}), 503
+    
     data = request.get_json()
     
     if not data or not data.get('endpoint'):
@@ -1930,6 +1965,8 @@ def api_unsubscribe():
 @app.route('/api/vapid-public-key')
 def api_vapid_public_key():
     """Get VAPID public key for push notifications"""
+    if not PUSH_NOTIFICATIONS_AVAILABLE:
+        return jsonify({'error': 'Push notifications not available'}), 503
     return jsonify({'publicKey': VAPID_PUBLIC_KEY})
 
 @app.route('/export/csv')
