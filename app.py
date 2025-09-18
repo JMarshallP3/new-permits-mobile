@@ -156,10 +156,21 @@ def scrape_rrc_permits():
                 try:
                     # Set ChromeDriver path for cloud environments
                     chromedriver_path = None
-                    if os.path.exists('/usr/local/bin/chromedriver'):
-                        chromedriver_path = '/usr/local/bin/chromedriver'
-                    elif os.path.exists('/usr/bin/chromedriver'):
-                        chromedriver_path = '/usr/bin/chromedriver'
+                    possible_paths = [
+                        '/usr/local/bin/chromedriver',
+                        '/usr/bin/chromedriver',
+                        '/opt/chromedriver',
+                        '/app/chromedriver'
+                    ]
+                    
+                    for path in possible_paths:
+                        if os.path.exists(path):
+                            chromedriver_path = path
+                            print(f"✅ Found ChromeDriver at: {path}")
+                            break
+                    
+                    if not chromedriver_path:
+                        print("⚠️ ChromeDriver not found in standard locations, will use webdriver-manager")
                     
                     if chromedriver_path:
                         service = Service(chromedriver_path)
@@ -1273,5 +1284,14 @@ with app.app_context():
         traceback.print_exc()
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    print("🚀 Starting RRC Monitor Application...")
+    print(f"📊 Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    port = int(os.environ.get('PORT', 8080))
+    print(f"🌐 Host: 0.0.0.0")
+    print(f"🔌 Port: {port}")
+    try:
+        app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    except Exception as e:
+        print(f"❌ Failed to start application: {e}")
+        import traceback
+        traceback.print_exc()
