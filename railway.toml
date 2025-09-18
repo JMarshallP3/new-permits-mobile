@@ -1,27 +1,11 @@
-# Cloud Deployment Configuration for Railway
-# This file tells Railway how to deploy the New Permits application
-
-# Application name
-name = "new-permits-cloud"
-
-# Python version
-python_version = "3.11"
-
-# Dependencies
 [build]
 builder = "nixpacks"
-buildCommand = "bash build.sh"
 
 [deploy]
-startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 app:app"
+startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 120 app:app"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 
-# Environment variables
-[env]
-FLASK_ENV = "production"
-FLASK_DEBUG = "false"
-PORT = "8000"
-DISPLAY = ":99"
-
+[build.nixpacks]
+providers = ["python"]

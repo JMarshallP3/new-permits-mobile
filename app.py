@@ -114,21 +114,69 @@ def scrape_rrc_permits():
                 chrome_options.add_argument('--disable-web-security')
                 chrome_options.add_argument('--disable-features=VizDisplayCompositor')
                 chrome_options.add_argument('--window-size=1920,1080')
+                chrome_options.add_argument('--disable-extensions')
+                chrome_options.add_argument('--disable-plugins')
+                chrome_options.add_argument('--disable-images')
+                chrome_options.add_argument('--disable-javascript')
+                chrome_options.add_argument('--disable-css')
+                chrome_options.add_argument('--disable-logging')
+                chrome_options.add_argument('--disable-background-timer-throttling')
+                chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+                chrome_options.add_argument('--disable-renderer-backgrounding')
+                chrome_options.add_argument('--disable-features=TranslateUI')
+                chrome_options.add_argument('--disable-ipc-flooding-protection')
                 chrome_options.add_argument('--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                
+                # Additional cloud-specific options
+                chrome_options.add_argument('--remote-debugging-port=9222')
+                chrome_options.add_argument('--disable-background-networking')
+                chrome_options.add_argument('--disable-default-apps')
+                chrome_options.add_argument('--disable-sync')
+                chrome_options.add_argument('--metrics-recording-only')
+                chrome_options.add_argument('--no-first-run')
+                chrome_options.add_argument('--safebrowsing-disable-auto-update')
+                chrome_options.add_argument('--disable-client-side-phishing-detection')
+                chrome_options.add_argument('--disable-hang-monitor')
+                chrome_options.add_argument('--disable-prompt-on-repost')
+                chrome_options.add_argument('--disable-domain-reliability')
+                chrome_options.add_argument('--disable-component-extensions-with-background-pages')
+                chrome_options.add_argument('--disable-background-timer-throttling')
+                chrome_options.add_argument('--disable-renderer-backgrounding')
+                chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+                chrome_options.add_argument('--disable-features=TranslateUI,BlinkGenPropertyTrees')
+                chrome_options.add_argument('--disable-ipc-flooding-protection')
+                
+                # Set binary location for cloud environments
+                if os.path.exists('/usr/bin/google-chrome'):
+                    chrome_options.binary_location = '/usr/bin/google-chrome'
+                elif os.path.exists('/usr/bin/chromium-browser'):
+                    chrome_options.binary_location = '/usr/bin/chromium-browser'
                 
                 # Try to use webdriver-manager for automatic ChromeDriver management
                 try:
-                    service = Service(ChromeDriverManager().install())
-                    driver = webdriver.Chrome(service=service, options=chrome_options)
-                    print("✅ ChromeDriver initialized successfully with WebDriverManager")
+                    # Set ChromeDriver path for cloud environments
+                    chromedriver_path = None
+                    if os.path.exists('/usr/bin/chromedriver'):
+                        chromedriver_path = '/usr/bin/chromedriver'
+                    elif os.path.exists('/usr/local/bin/chromedriver'):
+                        chromedriver_path = '/usr/local/bin/chromedriver'
+                    
+                    if chromedriver_path:
+                        service = Service(chromedriver_path)
+                        driver = webdriver.Chrome(service=service, options=chrome_options)
+                        print(f"✅ ChromeDriver initialized successfully with system driver at {chromedriver_path}")
+                    else:
+                        service = Service(ChromeDriverManager().install())
+                        driver = webdriver.Chrome(service=service, options=chrome_options)
+                        print("✅ ChromeDriver initialized successfully with WebDriverManager")
                 except Exception as e:
-                    print(f"WebDriverManager failed: {e}")
+                    print(f"ChromeDriver initialization failed: {e}")
                     try:
-                        # Fallback to system ChromeDriver
+                        # Fallback to system ChromeDriver without service
                         driver = webdriver.Chrome(options=chrome_options)
-                        print("✅ ChromeDriver initialized successfully with system driver")
+                        print("✅ ChromeDriver initialized successfully with system driver (no service)")
                     except Exception as e2:
-                        print(f"System ChromeDriver also failed: {e2}")
+                        print(f"All ChromeDriver attempts failed: {e2}")
                         raise e2
                 
                 try:
@@ -219,6 +267,9 @@ def scrape_rrc_permits():
                 print(f"Selenium not available: {e}, falling back to requests...")
             except Exception as selenium_error:
                 print(f"Selenium failed: {selenium_error}, falling back to requests...")
+                # Log the specific error for debugging
+                import traceback
+                print(f"Selenium error details: {traceback.format_exc()}")
                 
             # Fallback to requests approach
             try:
