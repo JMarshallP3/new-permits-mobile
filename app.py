@@ -156,10 +156,10 @@ def scrape_rrc_permits():
                 try:
                     # Set ChromeDriver path for cloud environments
                     chromedriver_path = None
-                    if os.path.exists('/usr/bin/chromedriver'):
-                        chromedriver_path = '/usr/bin/chromedriver'
-                    elif os.path.exists('/usr/local/bin/chromedriver'):
+                    if os.path.exists('/usr/local/bin/chromedriver'):
                         chromedriver_path = '/usr/local/bin/chromedriver'
+                    elif os.path.exists('/usr/bin/chromedriver'):
+                        chromedriver_path = '/usr/bin/chromedriver'
                     
                     if chromedriver_path:
                         service = Service(chromedriver_path)
