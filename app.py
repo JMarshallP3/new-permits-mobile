@@ -1081,8 +1081,8 @@ def generate_html():
     <body>
         <div class="container">
             <div class="header">
-                <h1>🏗️ Texas Railroad Commission</h1>
-                <p>Drilling Permits Monitor</p>
+                <h1>New Permits</h1>
+                <p>Texas Railroad Commission Monitor</p>
             </div>
             
             <div class="controls">
@@ -1103,7 +1103,7 @@ def generate_html():
                         🔍 Apply Filters
                     </button>
                     <button class="btn btn-success" onclick="startScraping()">
-                        🔄 Scrape New Permits
+                        🔄 Update Permits
                     </button>
                     <button class="btn btn-info" onclick="openCountySelector()">
                         📍 Select Counties
@@ -1117,9 +1117,9 @@ def generate_html():
             <div class="status">
                 <h3>📊 Status</h3>
                 <div class="status-item">
-                    <span class="status-label">Scraping Status:</span>
+                    <span class="status-label">Update Status:</span>
                     <span class="status-value" id="scraping-status">
-                        {scraping_status['is_running'] and 'Running...' or 'Completed'}
+                        {scraping_status['is_running'] and 'Updating...' or 'Completed'}
                     </span>
                 </div>
                 <div class="status-item">
@@ -1228,12 +1228,12 @@ def generate_html():
             }}
             
             function startScraping() {{
-                if (document.getElementById('scraping-status').textContent === 'Running...') {{
-                    alert('Scraping is already in progress!');
+                if (document.getElementById('scraping-status').textContent === 'Updating...') {{
+                    alert('Update is already in progress!');
                     return;
                 }}
                 
-                document.getElementById('scraping-status').textContent = 'Running...';
+                document.getElementById('scraping-status').textContent = 'Updating...';
                 
                 fetch('/api/scrape', {{
                     method: 'POST',
@@ -1243,14 +1243,14 @@ def generate_html():
                 }})
                 .then(response => response.json())
                 .then(data => {{
-                    alert('Scraping Started! Check back in 30 seconds.');
+                    alert('Update Started! Check back in 30 seconds.');
                     setTimeout(() => {{
                         location.reload();
                     }}, 35000);
                 }})
                 .catch(error => {{
                     console.error('Error:', error);
-                    alert('Error starting scraping process');
+                    alert('Error starting update process');
                     document.getElementById('scraping-status').textContent = 'Error';
                 }});
             }}
@@ -1344,7 +1344,7 @@ def generate_html():
                 fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {{
-                    document.getElementById('scraping-status').textContent = data.is_running ? 'Running...' : 'Completed';
+                    document.getElementById('scraping-status').textContent = data.is_running ? 'Updating...' : 'Completed';
                     document.getElementById('last-run').textContent = data.last_run || 'Never';
                     document.getElementById('last-count').textContent = data.last_count + ' permits';
                 }})
@@ -1364,14 +1364,14 @@ def index():
 @app.route('/api/scrape', methods=['POST'])
 def api_scrape():
     if scraping_status['is_running']:
-        return jsonify({'error': 'Scraping already in progress'}), 400
+        return jsonify({'error': 'Update already in progress'}), 400
     
     # Start scraping in background thread
     thread = threading.Thread(target=scrape_rrc_permits)
     thread.daemon = True
     thread.start()
     
-    return jsonify({'message': 'Scraping started'})
+    return jsonify({'message': 'Update started'})
 
 @app.route('/api/status')
 def api_status():
