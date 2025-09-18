@@ -10,18 +10,7 @@ python_version = "3.11"
 # Dependencies
 [build]
 builder = "nixpacks"
-
-# Build commands to install Chrome and ChromeDriver
-[build.buildCommand]
-commands = [
-  "apt-get update",
-  "apt-get install -y wget gnupg unzip curl xvfb",
-  "wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -",
-  "echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' >> /etc/apt/sources.list.d/google-chrome.list",
-  "apt-get update",
-  "apt-get install -y google-chrome-stable",
-  "pip install -r requirements.txt"
-]
+buildCommand = "bash build.sh"
 
 [deploy]
 startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 app:app"

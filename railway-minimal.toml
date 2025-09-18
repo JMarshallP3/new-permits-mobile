@@ -1,0 +1,11 @@
+# Minimal Railway Configuration
+# This is a simpler approach that should work with Railway
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 app:app"
+
+[env]
+PORT = "8000"

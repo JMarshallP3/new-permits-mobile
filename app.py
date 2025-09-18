@@ -120,10 +120,16 @@ def scrape_rrc_permits():
                 try:
                     service = Service(ChromeDriverManager().install())
                     driver = webdriver.Chrome(service=service, options=chrome_options)
+                    print("✅ ChromeDriver initialized successfully with WebDriverManager")
                 except Exception as e:
                     print(f"WebDriverManager failed: {e}")
-                    # Fallback to system ChromeDriver
-                    driver = webdriver.Chrome(options=chrome_options)
+                    try:
+                        # Fallback to system ChromeDriver
+                        driver = webdriver.Chrome(options=chrome_options)
+                        print("✅ ChromeDriver initialized successfully with system driver")
+                    except Exception as e2:
+                        print(f"System ChromeDriver also failed: {e2}")
+                        raise e2
                 
                 try:
                     # Navigate to the RRC search page
