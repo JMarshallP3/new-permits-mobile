@@ -1202,64 +1202,64 @@ def generate_html():
             }
             
             /* Responsive Design */
-            @media (max-width: 768px) {
-                .container {
+            @media (max-width: 768px) {{
+                .container {{
                     padding: 1rem;
-                }
+                }}
                 
-                .header h1 {
+                .header h1 {{
                     font-size: 2.5rem;
-                }
+                }}
                 
-                .controls, .status {
+                .controls, .status {{
                     padding: 1.5rem;
-                }
+                }}
                 
-                .control-row {
+                .control-row {{
                     flex-direction: column;
                     gap: 1rem;
-                }
+                }}
                 
-                .buttons {
+                .buttons {{
                     flex-direction: column;
-                }
+                }}
                 
-                .permits-grid {
+                .permits-grid {{
                     grid-template-columns: 1fr;
-                }
+                }}
                 
-                .county-modal {
+                .county-modal {{
                     margin: 1rem;
                     max-height: 90vh;
-                }
+                }}
                 
-                .county-grid {
+                .county-grid {{
                     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-                }
+                }}
                 
-                .theme-toggle {
+                .theme-toggle {{
                     top: 1rem;
                     right: 1rem;
-                }
-            }
+                }}
+            }}
             
             /* Smooth animations */
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
+            @keyframes fadeIn {{
+                from {{ opacity: 0; transform: translateY(20px); }}
+                to {{ opacity: 1; transform: translateY(0); }}
+            }}
             
-            .permit-card {
+            .permit-card {{
                 animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-            }
+            }}
             
-            .controls, .status {
+            .controls, .status {{
                 animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-            }
+            }}
             
-            .header {
+            .header {{
                 animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1);
-            }
+            }}
         </style>
     </head>
     <body>
