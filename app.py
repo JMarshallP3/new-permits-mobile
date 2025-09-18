@@ -674,7 +674,7 @@ def generate_html():
             /* Import premium fonts */
             @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=SF+Pro+Text:wght@300;400;500;600&display=swap');
             
-            :root {
+            :root {{
                 --bg-primary: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
                 --bg-secondary: rgba(255, 255, 255, 0.9);
                 --bg-card: rgba(255, 255, 255, 0.8);
@@ -683,9 +683,9 @@ def generate_html():
                 --border-color: rgba(255, 255, 255, 0.3);
                 --shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
                 --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.15);
-            }
+            }}
             
-            [data-theme="dark"] {
+            [data-theme="dark"] {{
                 --bg-primary: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
                 --bg-secondary: rgba(30, 41, 59, 0.9);
                 --bg-card: rgba(30, 41, 59, 0.8);
@@ -694,15 +694,15 @@ def generate_html():
                 --border-color: rgba(255, 255, 255, 0.1);
                 --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
                 --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.4);
-            }
+            }}
             
-            * {
+            * {{
                 margin: 0;
                 padding: 0;
                 box-sizing: border-box;
-            }
+            }}
             
-            body {
+            body {{
                 font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background: var(--bg-primary);
                 color: var(--text-primary);
@@ -713,21 +713,21 @@ def generate_html():
                 -moz-osx-font-smoothing: grayscale;
                 min-height: 100vh;
                 transition: all 0.3s ease;
-            }
+            }}
             
-            .container {
+            .container {{
                 max-width: 1200px;
                 margin: 0 auto;
                 padding: 2rem;
-            }
+            }}
             
-            .header {
+            .header {{
                 text-align: center;
                 margin-bottom: 3rem;
                 padding: 2rem 0;
-            }
+            }}
             
-            .header h1 {
+            .header h1 {{
                 font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 3.5rem;
                 font-weight: 700;
@@ -737,16 +737,16 @@ def generate_html():
                 background-clip: text;
                 margin-bottom: 0.5rem;
                 letter-spacing: -0.02em;
-            }
+            }}
             
-            .header p {
+            .header p {{
                 font-size: 1.25rem;
                 color: var(--text-secondary);
                 font-weight: 400;
                 letter-spacing: 0.01em;
-            }
+            }}
             
-            .theme-toggle {
+            .theme-toggle {{
                 position: fixed;
                 top: 2rem;
                 right: 2rem;
@@ -759,20 +759,20 @@ def generate_html():
                 transition: all 0.3s ease;
                 box-shadow: var(--shadow);
                 z-index: 1000;
-            }
+            }}
             
-            .theme-toggle:hover {
+            .theme-toggle:hover {{
                 transform: scale(1.1);
                 box-shadow: var(--shadow-hover);
-            }
+            }}
             
-            .theme-toggle svg {
+            .theme-toggle svg {{
                 width: 24px;
                 height: 24px;
                 color: var(--text-primary);
-            }
+            }}
             
-            .controls {
+            .controls {{
                 background: var(--bg-card);
                 backdrop-filter: blur(20px);
                 border-radius: 24px;
@@ -780,29 +780,29 @@ def generate_html():
                 margin-bottom: 2rem;
                 box-shadow: var(--shadow);
                 border: 1px solid var(--border-color);
-            }
+            }}
             
-            .control-row {
+            .control-row {{
                 display: flex;
                 gap: 1.5rem;
                 margin-bottom: 1.5rem;
                 align-items: center;
-            }
+            }}
             
-            .control-group {
+            .control-group {{
                 display: flex;
                 flex-direction: column;
                 gap: 0.5rem;
-            }
+            }}
             
-            .control-group label {
+            .control-group label {{
                 font-size: 0.875rem;
                 font-weight: 500;
                 color: var(--text-secondary);
                 letter-spacing: 0.025em;
-            }
+            }}
             
-            .control-group select {
+            .control-group select {{
                 padding: 0.75rem 1rem;
                 border: 2px solid var(--border-color);
                 border-radius: 12px;
@@ -812,21 +812,21 @@ def generate_html():
                 color: var(--text-primary);
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 cursor: pointer;
-            }
+            }}
             
-            .control-group select:focus {
+            .control-group select:focus {{
                 outline: none;
                 border-color: #667eea;
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            }
+            }}
             
-            .buttons {
+            .buttons {{
                 display: flex;
                 gap: 1rem;
                 flex-wrap: wrap;
-            }
+            }}
             
-            .btn {
+            .btn {{
                 padding: 0.875rem 1.5rem;
                 border: none;
                 border-radius: 12px;
@@ -841,9 +841,9 @@ def generate_html():
                 letter-spacing: 0.025em;
                 position: relative;
                 overflow: hidden;
-            }
+            }}
             
-            .btn::before {
+            .btn::before {{
                 content: '';
                 position: absolute;
                 top: 0;
@@ -852,57 +852,57 @@ def generate_html():
                 height: 100%;
                 background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
                 transition: left 0.5s;
-            }
+            }}
             
-            .btn:hover::before {
+            .btn:hover::before {{
                 left: 100%;
-            }
+            }}
             
-            .btn-primary {
+            .btn-primary {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-            }
+            }}
             
-            .btn-primary:hover {
+            .btn-primary:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-            }
+            }}
             
-            .btn-success {
+            .btn-success {{
                 background: linear-gradient(135deg, #10b981 0%, #059669 100%);
                 color: white;
                 box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
-            }
+            }}
             
-            .btn-success:hover {
+            .btn-success:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
-            }
+            }}
             
-            .btn-info {
+            .btn-info {{
                 background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
                 color: white;
                 box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
-            }
+            }}
             
-            .btn-info:hover {
+            .btn-info:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4);
-            }
+            }}
             
-            .btn-warning {
+            .btn-warning {{
                 background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
                 color: white;
                 box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
-            }
+            }}
             
-            .btn-warning:hover {
+            .btn-warning:hover {{
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
-            }
+            }}
             
-            .status {
+            .status {{
                 background: var(--bg-card);
                 backdrop-filter: blur(20px);
                 border-radius: 24px;
@@ -910,49 +910,49 @@ def generate_html():
                 margin-bottom: 2rem;
                 box-shadow: var(--shadow);
                 border: 1px solid var(--border-color);
-            }
+            }}
             
-            .status h3 {
+            .status h3 {{
                 font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 1.5rem;
                 font-weight: 600;
                 color: var(--text-primary);
                 margin-bottom: 1.5rem;
                 letter-spacing: -0.01em;
-            }
+            }}
             
-            .status-item {
+            .status-item {{
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 padding: 1rem 0;
                 border-bottom: 1px solid var(--border-color);
-            }
+            }}
             
-            .status-item:last-child {
+            .status-item:last-child {{
                 border-bottom: none;
-            }
+            }}
             
-            .status-label {
+            .status-label {{
                 font-size: 1rem;
                 font-weight: 500;
                 color: var(--text-secondary);
-            }
+            }}
             
-            .status-value {
+            .status-value {{
                 font-size: 1rem;
                 font-weight: 600;
                 color: var(--text-primary);
-            }
+            }}
             
-            .permits-grid {
+            .permits-grid {{
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
                 gap: 1.5rem;
                 margin-top: 2rem;
-            }
+            }}
             
-            .permit-card {
+            .permit-card {{
                 background: var(--bg-card);
                 backdrop-filter: blur(20px);
                 border-radius: 20px;
@@ -962,9 +962,9 @@ def generate_html():
                 transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                 position: relative;
                 overflow: hidden;
-            }
+            }}
             
-            .permit-card::before {
+            .permit-card::before {{
                 content: '';
                 position: absolute;
                 top: 0;
@@ -972,21 +972,21 @@ def generate_html():
                 right: 0;
                 height: 4px;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
+            }}
             
-            .permit-card:hover {
+            .permit-card:hover {{
                 transform: translateY(-8px) scale(1.02);
                 box-shadow: var(--shadow-hover);
-            }
+            }}
             
-            .permit-header {
+            .permit-header {{
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 1rem;
-            }
+            }}
             
-            .permit-county {
+            .permit-county {{
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 color: white;
                 padding: 0.5rem 1rem;
@@ -995,76 +995,76 @@ def generate_html():
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.05em;
-            }
+            }}
             
-            .permit-date {
+            .permit-date {{
                 color: var(--text-secondary);
                 font-size: 0.875rem;
                 font-weight: 500;
-            }
+            }}
             
-            .permit-info h3 {
+            .permit-info h3 {{
                 font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 1.25rem;
                 font-weight: 600;
                 color: var(--text-primary);
                 margin-bottom: 1rem;
                 letter-spacing: -0.01em;
-            }
+            }}
             
-            .permit-detail {
+            .permit-detail {{
                 margin-bottom: 0.75rem;
                 display: flex;
                 align-items: center;
-            }
+            }}
             
-            .permit-detail strong {
+            .permit-detail strong {{
                 min-width: 80px;
                 color: var(--text-secondary);
                 font-size: 0.875rem;
                 font-weight: 500;
-            }
+            }}
             
-            .permit-detail span {
+            .permit-detail span {{
                 color: var(--text-primary);
                 font-size: 0.875rem;
                 font-weight: 400;
-            }
+            }}
             
-            .permit-actions {
+            .permit-actions {{
                 display: flex;
                 gap: 0.75rem;
                 margin-top: 1rem;
-            }
+            }}
             
-            .btn-sm {
+            .btn-sm {{
                 padding: 0.5rem 1rem;
                 font-size: 0.875rem;
-            }
+            }}
             
-            .btn-outline-primary {
+            .btn-outline-primary {{
                 background: transparent;
                 color: #667eea;
                 border: 2px solid #667eea;
-            }
+            }}
             
-            .btn-outline-primary:hover {
+            .btn-outline-primary:hover {{
                 background: #667eea;
                 color: white;
-            }
+            }}
             
-            .btn-outline-danger {
+            .btn-outline-danger {{
                 background: transparent;
                 color: #ef4444;
                 border: 2px solid #ef4444;
-            }
+            }}
             
-            .btn-outline-danger:hover {
+            .btn-outline-danger:hover {{
                 background: #ef4444;
                 color: white;
-            }
+            }}
             
-            .no-permits {
+            .no-permits {{
                 text-align: center;
                 padding: 4rem 2rem;
                 color: var(--text-secondary);
@@ -1073,23 +1073,23 @@ def generate_html():
                 border-radius: 24px;
                 box-shadow: var(--shadow);
                 border: 1px solid var(--border-color);
-            }
+            }}
             
-            .no-permits h3 {
+            .no-permits h3 {{
                 font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 1.5rem;
                 font-weight: 600;
                 color: var(--text-primary);
                 margin-bottom: 0.5rem;
-            }
+            }}
             
-            .no-permits p {
+            .no-permits p {{
                 font-size: 1rem;
                 color: var(--text-secondary);
-            }
+            }}
             
             /* County Selector Modal */
-            .county-selector {
+            .county-selector {{
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -1102,9 +1102,9 @@ def generate_html():
                 align-items: center;
                 z-index: 1000;
                 padding: 2rem;
-            }
+            }}
             
-            .county-modal {
+            .county-modal {{
                 background: var(--bg-card);
                 backdrop-filter: blur(20px);
                 border-radius: 24px;
@@ -1115,9 +1115,9 @@ def generate_html():
                 overflow-y: auto;
                 box-shadow: var(--shadow-hover);
                 border: 1px solid var(--border-color);
-            }
+            }}
             
-            .county-modal h3 {
+            .county-modal h3 {{
                 font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
                 font-size: 1.5rem;
                 font-weight: 600;
@@ -1125,13 +1125,13 @@ def generate_html():
                 margin-bottom: 1.5rem;
                 text-align: center;
                 letter-spacing: -0.01em;
-            }
+            }}
             
-            .county-search-container {
+            .county-search-container {{
                 margin-bottom: 1.5rem;
-            }
+            }}
             
-            .county-search-input {
+            .county-search-input {{
                 width: 100%;
                 padding: 0.875rem 1rem;
                 border: 2px solid var(--border-color);
@@ -1141,29 +1141,29 @@ def generate_html():
                 background: var(--bg-secondary);
                 color: var(--text-primary);
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            }
+            }}
             
-            .county-search-input:focus {
+            .county-search-input:focus {{
                 outline: none;
                 border-color: #667eea;
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            }
+            }}
             
-            .modal-actions {
+            .modal-actions {{
                 display: flex;
                 gap: 1rem;
                 margin-bottom: 1.5rem;
                 justify-content: center;
-            }
+            }}
             
-            .county-actions {
+            .county-actions {{
                 display: flex;
                 gap: 1rem;
                 margin-bottom: 1.5rem;
                 justify-content: center;
-            }
+            }}
             
-            .county-grid {
+            .county-grid {{
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                 gap: 0.75rem;
@@ -1172,34 +1172,34 @@ def generate_html():
                 padding: 1rem;
                 background: var(--bg-secondary);
                 border-radius: 12px;
-            }
+            }}
             
-            .county-item {
+            .county-item {{
                 display: flex;
                 align-items: center;
                 gap: 0.5rem;
                 padding: 0.5rem;
                 border-radius: 8px;
                 transition: all 0.2s ease;
-            }
+            }}
             
-            .county-item:hover {
+            .county-item:hover {{
                 background: rgba(102, 126, 234, 0.1);
-            }
+            }}
             
-            .county-item input[type="checkbox"] {
+            .county-item input[type="checkbox"] {{
                 width: 18px;
                 height: 18px;
                 accent-color: #667eea;
-            }
+            }}
             
-            .county-item label {
+            .county-item label {{
                 font-size: 0.875rem;
                 font-weight: 500;
                 color: var(--text-primary);
                 cursor: pointer;
                 flex: 1;
-            }
+            }}
             
             /* Responsive Design */
             @media (max-width: 768px) {{
