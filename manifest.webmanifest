@@ -1,11 +1,11 @@
 ﻿{
   "name": "New Permits",
   "short_name": "New Permits",
-  "description": "RRC W-1 Permit Monitor",
+  "description": "Texas Railroad Commission Permit Monitor",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8f9fa",
-  "theme_color": "#007bff",
+  "background_color": "#f8fafc",
+  "theme_color": "#667eea",
   "orientation": "portrait",
   "icons": [
     {
@@ -13,11 +13,23 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "/static/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/apple-touch-icon-120x120.png",
+      "sizes": "120x120",
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "categories": ["business", "productivity"],
   "lang": "en-US",
   "scope": "/",
   "prefer_related_applications": false,
-  "color_scheme": "light dark"
+  "color_scheme": "light"
 }
