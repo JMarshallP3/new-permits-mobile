@@ -477,30 +477,40 @@ def parse_rrc_results(soup, today):
                 print(f"Row {i+1}: {cell_texts}")
                 
                 try:
-                    # Extract data based on typical RRC table structure
+                    # Extract data based on RRC table structure from logs:
                     # Status Date, Status #, API No., Operator Name/Number, Lease Name, Well #, Dist., County, etc.
+                    # From logs: Column 6 = Dist., Column 7 = County
                     
                     api_number = cells[2].get_text(strip=True) if len(cells) > 2 else ''
                     operator = cells[3].get_text(strip=True) if len(cells) > 3 else ''
                     lease_name = cells[4].get_text(strip=True) if len(cells) > 4 else ''
                     well_number = cells[5].get_text(strip=True) if len(cells) > 5 else ''
                     
-                    # Find county in later columns (typically column 7 or 8)
+                    # County is in column 7 (index 7) based on the logs
                     county = ''
-                    for i, cell in enumerate(cells[6:]):
-                        cell_text = cell.get_text(strip=True)
-                        print(f"  Column {i+6}: '{cell_text}'")
-                        if cell_text:
-                            normalized_county = normalize_county_name(cell_text)
-                            if normalized_county and normalized_county in TEXAS_COUNTIES:
-                                county = normalized_county
-                                print(f"  Found county: {county}")
-                                break
+                    if len(cells) > 7:
+                        county_text = cells[7].get_text(strip=True)
+                        print(f"  Column 7 (County): '{county_text}'")
+                        if county_text:
+                            county = normalize_county_name(county_text)
+                            print(f"  Found county: {county}")
                     
-                    # If no county found, try to extract from operator or lease name
+                    # If no county found in column 7, try other columns
                     if not county:
-                        print(f"  No county found in table columns, checking operator/lease")
-                        # This is a fallback - we'll need to improve this
+                        print(f"  No county found in column 7, checking other columns")
+                        for i, cell in enumerate(cells[6:]):
+                            cell_text = cell.get_text(strip=True)
+                            print(f"  Column {i+6}: '{cell_text}'")
+                            if cell_text:
+                                normalized_county = normalize_county_name(cell_text)
+                                if normalized_county and normalized_county in TEXAS_COUNTIES:
+                                    county = normalized_county
+                                    print(f"  Found county: {county}")
+                                    break
+                    
+                    # If still no county found, set to UNKNOWN
+                    if not county:
+                        print(f"  No county found in any column, setting to UNKNOWN")
                         county = 'UNKNOWN'
                     
                     # Skip header rows or invalid data
