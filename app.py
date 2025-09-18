@@ -78,7 +78,7 @@ TEXAS_COUNTIES = (
 )
 
 def scrape_rrc_permits():
-    """Scrape new permits from RRC website - SIMPLIFIED APPROACH"""
+    """Scrape new permits from RRC website using Selenium for proper form interaction"""
     global scraping_status
     
     scraping_status['is_running'] = True
@@ -92,216 +92,296 @@ def scrape_rrc_permits():
             today = date.today()
             date_str = today.strftime('%m/%d/%Y')
             
-            # Create session with proper headers
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Accept-Encoding': 'gzip, deflate',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Referer': 'https://webapps.rrc.state.tx.us/'
-            })
-            
-            # DIRECT APPROACH: Try to access the search results directly
-            # Based on the screenshot, the URL structure seems to be:
-            # https://webapps.rrc.state.tx.us/DP/changeQueryPageAction.do;jsessionid=...
-            
-            print(f"Attempting direct search for date: {date_str}")
-            
-            # Try direct POST to the search action
-            search_url = 'https://webapps.rrc.state.tx.us/DP/publicQueryAction.do'
-            
-            # Prepare search data
-            search_data = {
-                'submittedDateBegin': date_str,
-                'submittedDateEnd': date_str,
-                'queryType': 'drillingPermit',
-                'status': 'All Statuses',
-                'county': '',
-                'operatorName': '',
-                'leaseName': '',
-                'wellNumber': '',
-                'apiNumber': '',
-                'submit': 'Search'
-            }
-            
-            print(f"POSTing to: {search_url}")
-            print(f"Search data: {search_data}")
-            
-            response = session.post(search_url, data=search_data, timeout=30)
-            print(f"Response status: {response.status_code}")
-            print(f"Response URL: {response.url}")
-            
-            # Check if we got redirected to login
-            if 'log in' in response.text.lower() or 'userid' in response.text.lower():
-                print("Redirected to login page - trying alternative approach")
+            # Try Selenium approach first for proper form interaction
+            try:
+                from selenium import webdriver
+                from selenium.webdriver.common.by import By
+                from selenium.webdriver.support.ui import WebDriverWait
+                from selenium.webdriver.support import expected_conditions as EC
+                from selenium.webdriver.chrome.options import Options
+                from selenium.webdriver.common.keys import Keys
                 
-                # Try with different headers and approach
+                print(f"Using Selenium to scrape RRC for date: {date_str}")
+                
+                # Set up Chrome options for headless mode
+                chrome_options = Options()
+                chrome_options.add_argument('--headless')
+                chrome_options.add_argument('--no-sandbox')
+                chrome_options.add_argument('--disable-dev-shm-usage')
+                chrome_options.add_argument('--disable-gpu')
+                chrome_options.add_argument('--window-size=1920,1080')
+                chrome_options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+                
+                driver = webdriver.Chrome(options=chrome_options)
+                
+                try:
+                    # Navigate to the RRC search page
+                    search_url = "https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do"
+                    print(f"Navigating to: {search_url}")
+                    driver.get(search_url)
+                    
+                    # Wait for page to load
+                    WebDriverWait(driver, 15).until(
+                        EC.presence_of_element_located((By.TAG_NAME, "form"))
+                    )
+                    
+                    print("Page loaded, looking for date fields...")
+                    
+                    # Find and fill the Submitted Date Begin field
+                    try:
+                        begin_field = driver.find_element(By.NAME, "submittedDateBegin")
+                        begin_field.clear()
+                        begin_field.send_keys(date_str)
+                        print(f"Filled submittedDateBegin: {date_str}")
+                    except Exception as e:
+                        print(f"Could not find submittedDateBegin field: {e}")
+                    
+                    # Find and fill the Submitted Date End field
+                    try:
+                        end_field = driver.find_element(By.NAME, "submittedDateEnd")
+                        end_field.clear()
+                        end_field.send_keys(date_str)
+                        print(f"Filled submittedDateEnd: {date_str}")
+                    except Exception as e:
+                        print(f"Could not find submittedDateEnd field: {e}")
+                    
+                    # Find and click the Submit button (not RRC Online Home)
+                    try:
+                        # Look for the Submit button specifically
+                        submit_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Submit']")
+                        print("Found Submit button, clicking...")
+                        submit_button.click()
+                        
+                        # Wait for results page to load
+                        WebDriverWait(driver, 20).until(
+                            lambda driver: driver.current_url != search_url
+                        )
+                        
+                        print(f"After submit, current URL: {driver.current_url}")
+                        
+                        # Check if we got redirected to login
+                        if 'login' in driver.current_url.lower():
+                            print("Redirected to login page - RRC may require authentication")
+                            scraping_status['last_count'] = 0
+                            return
+                        
+                        # Parse the results page
+                        soup = BeautifulSoup(driver.page_source, 'html.parser')
+                        permits = parse_rrc_results(soup, today)
+                        
+                        if permits:
+                            print(f"Found {len(permits)} permits via Selenium")
+                            scraping_status['last_count'] = len(permits)
+                            return
+                        else:
+                            print("No permits found in results")
+                            
+                    except Exception as e:
+                        print(f"Could not find or click Submit button: {e}")
+                        # Try alternative button selectors
+                        try:
+                            submit_buttons = driver.find_elements(By.XPATH, "//input[@type='submit']")
+                            print(f"Found {len(submit_buttons)} submit buttons")
+                            for i, btn in enumerate(submit_buttons):
+                                print(f"Button {i}: value='{btn.get_attribute('value')}', text='{btn.text}'")
+                            
+                            # Click the first submit button that's not "Log In"
+                            for btn in submit_buttons:
+                                if btn.get_attribute('value') and 'log' not in btn.get_attribute('value').lower():
+                                    print(f"Clicking button with value: {btn.get_attribute('value')}")
+                                    btn.click()
+                                    break
+                                    
+                        except Exception as e2:
+                            print(f"Alternative button click failed: {e2}")
+                
+                finally:
+                    driver.quit()
+                    
+            except ImportError:
+                print("Selenium not available, falling back to requests...")
+                
+                # Fallback to requests approach
+                session = requests.Session()
                 session.headers.update({
-                    'User-Agent': 'Mozilla/5.0 (compatible; RRCBot/1.0)',
-                    'Accept': '*/*'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Referer': 'https://webapps.rrc.state.tx.us/'
                 })
                 
-                # Try GET request first to get the form
-                form_response = session.get('https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do', timeout=30)
+                # Get the form page
+                form_url = "https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do"
+                form_response = session.get(form_url, timeout=30)
                 print(f"Form page status: {form_response.status_code}")
                 
                 if form_response.status_code == 200:
-                    soup = BeautifulSoup(form_response.text, 'html.parser')
-                    form = soup.find('form')
+                    soup = BeautifulSoup(form_response.content, 'html.parser')
                     
+                    # Find the search form
+                    form = soup.find('form')
                     if form:
                         print("Found form, extracting fields...")
-                        form_data = {}
                         
-                        # Extract all form fields
+                        # Extract form action and method
+                        action = form.get('action', '')
+                        method = form.get('method', 'post').lower()
+                        
+                        # Build form data with today's date
+                        form_data = {}
                         for input_field in form.find_all(['input', 'select', 'textarea']):
                             name = input_field.get('name')
-                            value = input_field.get('value', '')
                             if name:
-                                form_data[name] = value
+                                if name == 'submittedDateBegin' or name == 'submittedDateEnd':
+                                    form_data[name] = date_str
+                                elif input_field.get('type') == 'submit':
+                                    form_data[name] = input_field.get('value', 'Submit')
+                                elif input_field.get('type') == 'hidden':
+                                    form_data[name] = input_field.get('value', '')
+                                elif input_field.get('type') == 'text' and not name.startswith('submittedDate'):
+                                    form_data[name] = ''
                         
-                        # Set our search criteria
-                        form_data['submittedDateBegin'] = date_str
-                        form_data['submittedDateEnd'] = date_str
-                        
-                        # Get form action URL
-                        form_action = form.get('action', '')
-                        if form_action.startswith('/'):
-                            form_url = f"https://webapps.rrc.state.tx.us{form_action}"
-                        else:
-                            form_url = form_action
-                        
-                        print(f"Submitting form to: {form_url}")
-                        print(f"Form data: {form_data}")
-                        
-                        response = session.post(form_url, data=form_data, timeout=30)
-                        print(f"Form submission status: {response.status_code}")
-                        print(f"Form submission URL: {response.url}")
-                    else:
-                        print("No form found")
-                        return
-                else:
-                    print("Could not access form page")
-                    return
+                        # Submit the form
+                        if action:
+                            submit_url = urljoin(form_url, action)
+                            print(f"Submitting form to: {submit_url}")
+                            print(f"Form data: {form_data}")
+                            
+                            submit_response = session.post(submit_url, data=form_data, timeout=30)
+                            print(f"Form submission status: {submit_response.status_code}")
+                            print(f"Form submission URL: {submit_response.url}")
+                            
+                            if submit_response.status_code == 200:
+                                results_soup = BeautifulSoup(submit_response.content, 'html.parser')
+                                permits = parse_rrc_results(results_soup, today)
+                                
+                                if permits:
+                                    print(f"Found {len(permits)} permits via form submission")
+                                    scraping_status['last_count'] = len(permits)
+                                    return
             
-            # Parse the results
-            soup = BeautifulSoup(response.text, 'html.parser')
+            print("No new permits found for today")
+            scraping_status['last_count'] = 0
             
-            # Look for results table
-            tables = soup.find_all('table')
-            print(f"Found {len(tables)} tables on page")
-            
-            results_table = None
-            max_rows = 0
-            
-            for i, table in enumerate(tables):
-                rows = table.find_all('tr')
-                row_count = len(rows)
-                print(f"Table {i}: rows={row_count}")
-                
-                if row_count > 0:
-                    first_row_cells = [cell.get_text(strip=True) for cell in rows[0].find_all(['td', 'th'])]
-                    print(f"  First row: {first_row_cells}")
-                
-                # Look for table with most rows (likely results)
-                if row_count > max_rows:
-                    max_rows = row_count
-                    results_table = table
-            
-            if results_table and max_rows > 1:
-                print(f"Using table with {max_rows} rows")
-                
-                rows = results_table.find_all('tr')
-                data_rows = rows[1:] if len(rows) > 1 else rows  # Skip header
-                
-                print(f"Processing {len(data_rows)} data rows")
-                
-                new_permits = []
-                
-                for i, row in enumerate(data_rows):
-                    cells = row.find_all(['td', 'th'])
-                    if len(cells) < 5:
-                        continue
-                    
-                    cell_texts = [cell.get_text(strip=True) for cell in cells]
-                    print(f"Row {i+1}: {cell_texts}")
-                    
-                    try:
-                        # Extract data based on typical RRC table structure
-                        # Status Date, Status #, API No., Operator Name/Number, Lease Name, Well #, Dist., County, etc.
-                        
-                        api_number = cells[2].get_text(strip=True) if len(cells) > 2 else ''
-                        operator = cells[3].get_text(strip=True) if len(cells) > 3 else ''
-                        lease_name = cells[4].get_text(strip=True) if len(cells) > 4 else ''
-                        well_number = cells[5].get_text(strip=True) if len(cells) > 5 else ''
-                        
-                        # Find county in later columns
-                        county = ''
-                        for cell in cells[6:]:
-                            cell_text = cell.get_text(strip=True)
-                            if cell_text and cell_text.upper() in [c.upper() for c in TEXAS_COUNTIES]:
-                                county = cell_text.upper()
-                                break
-                        
-                        # Skip header rows or invalid data
-                        if not api_number or not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
-                            continue
-                        
-                        # Create RRC link
-                        rrc_link = f"https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name={lease_name.replace(' ', '%20')}&fromPublicQuery=Y"
-                        
-                        # Check if permit already exists
-                        existing_permit = Permit.query.filter_by(
-                            api_number=api_number,
-                            lease_name=lease_name,
-                            well_number=well_number
-                        ).first()
-                        
-                        if not existing_permit:
-                            permit = Permit(
-                                county=county,
-                                operator=operator,
-                                lease_name=lease_name,
-                                well_number=well_number,
-                                api_number=api_number,
-                                date_issued=today,
-                                rrc_link=rrc_link
-                            )
-                            db.session.add(permit)
-                            new_permits.append(permit)
-                            print(f"Added new permit: {operator} - {lease_name} - {well_number}")
-                    
-                    except Exception as e:
-                        print(f"Error processing row {i+1}: {e}")
-                        continue
-                
-                # Commit new permits
-                if new_permits:
-                    db.session.commit()
-                    print(f"Successfully added {len(new_permits)} new permits")
-                else:
-                    print("No new permits found for today")
-                
-                # Update status
-                scraping_status['last_count'] = len(new_permits)
-                scraping_status['last_run'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                
-            else:
-                print("No results table found or table has no data")
-                print("Page content preview:")
-                print(response.text[:1000])  # First 1000 chars
-                
-        scraping_status['is_running'] = False
+        except Exception as e:
+            print(f"Error scraping RRC permits: {e}")
+            import traceback
+            traceback.print_exc()
+            scraping_status['error'] = str(e)
+        finally:
+            scraping_status['is_running'] = False
+
+def parse_rrc_results(soup, today):
+    """Parse RRC results page and extract permit data"""
+    try:
+        # Look for results table
+        tables = soup.find_all('table')
+        print(f"Found {len(tables)} tables on page")
         
+        results_table = None
+        max_rows = 0
+        
+        for i, table in enumerate(tables):
+            rows = table.find_all('tr')
+            row_count = len(rows)
+            print(f"Table {i}: rows={row_count}")
+            
+            if row_count > 0:
+                first_row_cells = [cell.get_text(strip=True) for cell in rows[0].find_all(['td', 'th'])]
+                print(f"  First row: {first_row_cells}")
+            
+            # Look for table with most rows (likely results)
+            if row_count > max_rows:
+                max_rows = row_count
+                results_table = table
+        
+        if results_table and max_rows > 1:
+            print(f"Using table with {max_rows} rows")
+            
+            rows = results_table.find_all('tr')
+            data_rows = rows[1:] if len(rows) > 1 else rows  # Skip header
+            
+            print(f"Processing {len(data_rows)} data rows")
+            
+            new_permits = []
+            
+            for i, row in enumerate(data_rows):
+                cells = row.find_all(['td', 'th'])
+                if len(cells) < 5:
+                    continue
+                
+                cell_texts = [cell.get_text(strip=True) for cell in cells]
+                print(f"Row {i+1}: {cell_texts}")
+                
+                try:
+                    # Extract data based on typical RRC table structure
+                    # Status Date, Status #, API No., Operator Name/Number, Lease Name, Well #, Dist., County, etc.
+                    
+                    api_number = cells[2].get_text(strip=True) if len(cells) > 2 else ''
+                    operator = cells[3].get_text(strip=True) if len(cells) > 3 else ''
+                    lease_name = cells[4].get_text(strip=True) if len(cells) > 4 else ''
+                    well_number = cells[5].get_text(strip=True) if len(cells) > 5 else ''
+                    
+                    # Find county in later columns
+                    county = ''
+                    for cell in cells[6:]:
+                        cell_text = cell.get_text(strip=True)
+                        if cell_text and cell_text.upper() in [c.upper() for c in TEXAS_COUNTIES]:
+                            county = cell_text.upper()
+                            break
+                    
+                    # Skip header rows or invalid data
+                    if not api_number or not operator or 'api' in api_number.lower() or 'status' in api_number.lower():
+                        continue
+                    
+                    # Create RRC link
+                    rrc_link = f"https://webapps.rrc.state.tx.us/DP/drillDownQueryAction.do?name={lease_name.replace(' ', '%20')}&fromPublicQuery=Y"
+                    
+                    # Check if permit already exists
+                    existing_permit = Permit.query.filter_by(
+                        api_number=api_number,
+                        lease_name=lease_name,
+                        well_number=well_number
+                    ).first()
+                    
+                    if not existing_permit:
+                        permit = Permit(
+                            county=county,
+                            operator=operator,
+                            lease_name=lease_name,
+                            well_number=well_number,
+                            api_number=api_number,
+                            date_issued=today,
+                            rrc_link=rrc_link
+                        )
+                        db.session.add(permit)
+                        new_permits.append(permit)
+                        print(f"Added new permit: {operator} - {lease_name} - {well_number}")
+                
+                except Exception as e:
+                    print(f"Error processing row {i+1}: {e}")
+                    continue
+            
+            # Commit new permits
+            if new_permits:
+                db.session.commit()
+                print(f"Successfully added {len(new_permits)} new permits")
+                return new_permits
+            else:
+                print("No new permits found")
+                return []
+        else:
+            print("No results table found or table has no data")
+            return []
+            
     except Exception as e:
-        print(f"Error scraping RRC permits: {e}")
+        print(f"Error parsing RRC results: {e}")
         import traceback
         traceback.print_exc()
-        scraping_status['error'] = str(e)
-        scraping_status['is_running'] = False
+        return []
 
 def generate_html():
     """Generate the complete HTML page"""
