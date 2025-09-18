@@ -1101,21 +1101,22 @@ def dismiss_permit(permit_id):
     db.session.commit()
     return jsonify({'success': True})
 
+# Initialize database when the module is imported (works with Gunicorn)
+with app.app_context():
+    try:
+        db.create_all()
+        print("Database initialized successfully")
+        
+        # Test database connection
+        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
+        tables = [row[0] for row in result]
+        print(f"Database tables: {tables}")
+        
+    except Exception as e:
+        print(f"Database initialization error: {e}")
+        import traceback
+        traceback.print_exc()
+
 if __name__ == '__main__':
-    with app.app_context():
-        try:
-            db.create_all()
-            print("Database initialized successfully")
-            
-            # Test database connection
-            result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
-            tables = [row[0] for row in result]
-            print(f"Database tables: {tables}")
-            
-        except Exception as e:
-            print(f"Database initialization error: {e}")
-            import traceback
-            traceback.print_exc()
-    
     port = int(os.environ.get('PORT', 8000))
     app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
