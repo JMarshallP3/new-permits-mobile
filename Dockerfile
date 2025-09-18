@@ -5,6 +5,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PORT=8080
 
 # Install system dependencies for Chrome and ChromeDriver
 RUN apt-get update && apt-get install -y \

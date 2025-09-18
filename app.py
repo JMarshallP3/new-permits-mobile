@@ -1286,7 +1286,17 @@ with app.app_context():
 if __name__ == '__main__':
     print("🚀 Starting RRC Monitor Application...")
     print(f"📊 Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    port = int(os.environ.get('PORT', 8080))
+    
+    # Handle Railway's PORT environment variable properly
+    port_str = os.environ.get('PORT', '8080')
+    print(f"🔍 Raw PORT environment variable: '{port_str}'")
+    
+    try:
+        port = int(port_str)
+    except (ValueError, TypeError):
+        print(f"⚠️ Invalid PORT value '{port_str}', using default 8080")
+        port = 8080
+    
     print(f"🌐 Host: 0.0.0.0")
     print(f"🔌 Port: {port}")
     try:
