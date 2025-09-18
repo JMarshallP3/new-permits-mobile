@@ -277,12 +277,55 @@ def scrape_rrc_permits():
                         soup = BeautifulSoup(driver.page_source, 'html.parser')
                         permits = parse_rrc_results(soup, today)
                         
-                        if permits:
-                            print(f"✅ Found {len(permits)} permits via Selenium")
-                            scraping_status['last_count'] = len(permits)
+                        # Check for pagination and scrape additional pages
+                        page_count = 1
+                        total_permits = permits if permits else []
+                        
+                        # Look for pagination links
+                        pagination_links = driver.find_elements(By.XPATH, "//a[contains(@href, 'pager.offset')]")
+                        if pagination_links:
+                            print(f"Found {len(pagination_links)} pagination links")
+                            
+                            # Get unique page URLs
+                            page_urls = set()
+                            for link in pagination_links:
+                                href = link.get_attribute('href')
+                                if href and 'pager.offset' in href:
+                                    page_urls.add(href)
+                            
+                            print(f"Found {len(page_urls)} unique page URLs")
+                            
+                            # Scrape each additional page
+                            for page_url in page_urls:
+                                try:
+                                    page_count += 1
+                                    print(f"Scraping page {page_count}: {page_url}")
+                                    
+                                    driver.get(page_url)
+                                    WebDriverWait(driver, 10).until(
+                                        lambda driver: driver.current_url == page_url
+                                    )
+                                    
+                                    # Parse this page
+                                    soup = BeautifulSoup(driver.page_source, 'html.parser')
+                                    page_permits = parse_rrc_results(soup, today)
+                                    
+                                    if page_permits:
+                                        total_permits.extend(page_permits)
+                                        print(f"Found {len(page_permits)} permits on page {page_count}")
+                                    else:
+                                        print(f"No permits found on page {page_count}")
+                                        
+                                except Exception as e:
+                                    print(f"Error scraping page {page_count}: {e}")
+                                    continue
+                        
+                        if total_permits:
+                            print(f"✅ Found {len(total_permits)} total permits across {page_count} pages via Selenium")
+                            scraping_status['last_count'] = len(total_permits)
                             return
                         else:
-                            print("No permits found in results")
+                            print("No permits found in any page")
                             
                     except Exception as e:
                         print(f"Error clicking Search button: {e}")
@@ -1149,13 +1192,17 @@ def generate_html():
                         <input type="text" id="countySearch" placeholder="Search counties..." class="county-search-input">
                     </div>
                     
-                    <!-- Action Buttons -->
-                    <div class="county-actions">
-                        <button class="btn btn-outline-primary btn-sm" onclick="selectAllFiltered()">Select All (Filtered)</button>
-                        <button class="btn btn-outline-secondary btn-sm" onclick="deselectAllFiltered()">Deselect All (Filtered)</button>
-                        <button class="btn btn-outline-success btn-sm" onclick="selectAll()">Select ALL</button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deselectAll()">Deselect ALL</button>
-                    </div>
+                <!-- Modal Actions -->
+                <div class="modal-actions">
+                    <button class="btn btn-outline-danger" onclick="closeCountySelector()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveSelectedCounties()">Save Selection</button>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="county-actions">
+                    <button class="btn btn-outline-success btn-sm" onclick="selectAll()">Select ALL</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deselectAll()">Deselect ALL</button>
+                </div>
                     
                     <!-- Counties Grid -->
                     <div class="county-grid" id="countyGrid">
@@ -1165,12 +1212,6 @@ def generate_html():
                             <label for="county-{county}">{county}</label>
                         </div>
                         ''' for county in TEXAS_COUNTIES])}
-                    </div>
-                    
-                    <!-- Modal Actions -->
-                    <div class="modal-actions">
-                        <button class="btn btn-outline-danger" onclick="closeCountySelector()">Cancel</button>
-                        <button class="btn btn-primary" onclick="saveSelectedCounties()">Save Selection</button>
                     </div>
                 </div>
             </div>
@@ -1230,16 +1271,6 @@ def generate_html():
             function deselectAll() {{
                 const checkboxes = document.querySelectorAll('#county-selector input[type="checkbox"]');
                 checkboxes.forEach(checkbox => checkbox.checked = false);
-            }}
-            
-            function selectAllFiltered() {{
-                const visibleCheckboxes = document.querySelectorAll('#county-selector .county-item:not([style*="display: none"]) input[type="checkbox"]');
-                visibleCheckboxes.forEach(checkbox => checkbox.checked = true);
-            }}
-            
-            function deselectAllFiltered() {{
-                const visibleCheckboxes = document.querySelectorAll('#county-selector .county-item:not([style*="display: none"]) input[type="checkbox"]');
-                visibleCheckboxes.forEach(checkbox => checkbox.checked = false);
             }}
             
             // County search functionality
