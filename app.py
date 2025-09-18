@@ -56,6 +56,7 @@ class Subscription(db.Model):
     p256dh = db.Column(db.String(200), nullable=False)
     auth = db.Column(db.String(200), nullable=False)
     user_agent = db.Column(db.String(500))
+    session_id = db.Column(db.String(100), nullable=False)  # Link to user session
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 # User settings model
@@ -139,23 +140,28 @@ def send_notifications_for_new_permits(new_permits):
         for permit in new_permits:
             permit_county = permit.county
             
-            # Send notification to all subscriptions (in a real app, you'd match by user)
+            # Send notification only to users who have this county selected
             for subscription in subscriptions:
-                # Check if user has this county selected (simplified - in real app you'd have user-subscription mapping)
-                subscription_data = {
-                    "endpoint": subscription.endpoint,
-                    "keys": {
-                        "p256dh": subscription.p256dh,
-                        "auth": subscription.auth
+                # Get the user's selected counties
+                user_counties = user_settings.get(subscription.session_id, [])
+                
+                # Only send notification if this user has the permit's county selected
+                if permit_county in user_counties:
+                    subscription_data = {
+                        "endpoint": subscription.endpoint,
+                        "keys": {
+                            "p256dh": subscription.p256dh,
+                            "auth": subscription.auth
+                        }
                     }
-                }
-                
-                title = f"New Permit in {permit_county}"
-                body = f"{permit.operator} - {permit.lease_name} #{permit.well_number}"
-                url = permit.rrc_link
-                
-                if send_push_notification(subscription_data, title, body, url):
-                    notifications_sent += 1
+                    
+                    title = f"New Permit in {permit_county}"
+                    body = f"{permit.operator} - {permit.lease_name} #{permit.well_number}"
+                    url = permit.rrc_link
+                    
+                    if send_push_notification(subscription_data, title, body, url):
+                        notifications_sent += 1
+                        print(f"Sent notification to user {subscription.session_id} for {permit_county} permit")
         
         print(f"Sent {notifications_sent} push notifications for {len(new_permits)} new permits")
 
@@ -1938,6 +1944,13 @@ def api_subscribe():
         return jsonify({'error': 'Missing subscription data'}), 400
     
     try:
+        # Get or create session ID for this user
+        session_id = session.get('session_id')
+        if not session_id:
+            import uuid
+            session_id = str(uuid.uuid4())
+            session['session_id'] = session_id
+        
         if not PUSH_NOTIFICATIONS_AVAILABLE:
             print("Push notifications not available, but storing subscription anyway")
             # Store subscription even if pywebpush isn't available
@@ -1945,7 +1958,8 @@ def api_subscribe():
                 endpoint=data['endpoint'],
                 p256dh=data.get('keys', {}).get('p256dh', ''),
                 auth=data.get('keys', {}).get('auth', ''),
-                user_agent=request.headers.get('User-Agent', '')
+                user_agent=request.headers.get('User-Agent', ''),
+                session_id=session_id
             )
             
             # Remove existing subscription with same endpoint
@@ -1961,7 +1975,8 @@ def api_subscribe():
             endpoint=data['endpoint'],
             p256dh=data.get('keys', {}).get('p256dh', ''),
             auth=data.get('keys', {}).get('auth', ''),
-            user_agent=request.headers.get('User-Agent', '')
+            user_agent=request.headers.get('User-Agent', ''),
+            session_id=session_id
         )
         
         # Remove existing subscription with same endpoint
