@@ -1818,7 +1818,13 @@ def generate_html():
             function initializePushNotifications() {{
                 // Always show the notification button initially
                 const btn = document.getElementById('notificationBtn');
-                if (btn) btn.style.display = 'inline-flex';
+                if (btn) {{
+                    btn.style.display = 'inline-flex';
+                    btn.style.visibility = 'visible';
+                    console.log('Notification button made visible');
+                }} else {{
+                    console.error('Notification button not found!');
+                }}
                 
                 // Check if push notifications are available on the server
                 fetch('/api/vapid-public-key')
@@ -1853,9 +1859,8 @@ def generate_html():
                             console.log('An error occurred during service worker registration', error);
                         }});
                     }} else {{
-                        console.warn('Push messaging is not supported');
-                        const btn = document.getElementById('notificationBtn');
-                        if (btn) btn.style.display = 'none';
+                        console.warn('Push messaging is not supported, but showing button anyway');
+                        // Don't hide the button - let user try anyway
                     }}
                 }})
                 .catch(function(error) {{
