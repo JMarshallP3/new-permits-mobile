@@ -196,64 +196,128 @@ def scrape_rrc_permits():
                     print(f"Navigating to: {search_url}")
                     driver.get(search_url)
                     
-                    # Wait for page to load
+                    # Wait for page to load and check if we're on the right page
                     WebDriverWait(driver, 15).until(
                         EC.presence_of_element_located((By.TAG_NAME, "form"))
                     )
                     
-                    print("Page loaded, looking for date fields...")
+                    print(f"Page loaded successfully. Current URL: {driver.current_url}")
+                    print(f"Page title: {driver.title}")
+                    
+                    # Check if we're on the correct page (should contain "Search for W-1s" or similar)
+                    page_source = driver.page_source
+                    if "Search for W-1s" in page_source or "Drilling Permit" in page_source:
+                        print("✅ Successfully loaded the RRC public query form")
+                    else:
+                        print("⚠️ Page content doesn't match expected RRC query form")
+                        print(f"Page contains: {page_source[:500]}...")
+                    
+                    # Look for all input fields to debug
+                    all_inputs = driver.find_elements(By.TAG_NAME, "input")
+                    print(f"Found {len(all_inputs)} input fields on the page")
                     
                     # Find and fill the Submitted Date Begin field
                     try:
-                        begin_field = driver.find_element(By.NAME, "submittedDateBegin")
-                        begin_field.clear()
-                        begin_field.send_keys(date_str)
-                        print(f"Filled submittedDateBegin: {date_str}")
+                        # Try multiple possible field names
+                        begin_field = None
+                        possible_begin_names = ["submittedDateBegin", "submitted_date_begin", "dateBegin", "date_begin"]
+                        
+                        for name in possible_begin_names:
+                            try:
+                                begin_field = driver.find_element(By.NAME, name)
+                                print(f"Found Submitted Date Begin field with name: {name}")
+                                break
+                            except:
+                                continue
+                        
+                        if begin_field:
+                            begin_field.clear()
+                            begin_field.send_keys(date_str)
+                            print(f"✅ Filled Submitted Date Begin: {date_str}")
+                        else:
+                            print("❌ Could not find Submitted Date Begin field")
+                            # List all input fields for debugging
+                            for inp in all_inputs:
+                                if inp.get_attribute('name'):
+                                    print(f"  Input field: name='{inp.get_attribute('name')}', type='{inp.get_attribute('type')}', placeholder='{inp.get_attribute('placeholder')}'")
+                            
                     except Exception as e:
-                        print(f"Could not find submittedDateBegin field: {e}")
+                        print(f"Error filling Submitted Date Begin field: {e}")
                     
                     # Find and fill the Submitted Date End field
                     try:
-                        end_field = driver.find_element(By.NAME, "submittedDateEnd")
-                        end_field.clear()
-                        end_field.send_keys(date_str)
-                        print(f"Filled submittedDateEnd: {date_str}")
-                    except Exception as e:
-                        print(f"Could not find submittedDateEnd field: {e}")
-                    
-                    # Find and click the Submit button (not RRC Online Home)
-                    try:
-                        # Look for the Submit button specifically
-                        submit_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Submit']")
-                        print("Found Submit button, clicking...")
-                        submit_button.click()
+                        # Try multiple possible field names
+                        end_field = None
+                        possible_end_names = ["submittedDateEnd", "submitted_date_end", "dateEnd", "date_end"]
                         
-                        # Wait for results page to load
-                        WebDriverWait(driver, 20).until(
-                            lambda driver: driver.current_url != search_url
-                        )
+                        for name in possible_end_names:
+                            try:
+                                end_field = driver.find_element(By.NAME, name)
+                                print(f"Found Submitted Date End field with name: {name}")
+                                break
+                            except:
+                                continue
                         
-                        print(f"After submit, current URL: {driver.current_url}")
-                        
-                        # Check if we got redirected to login
-                        if 'login' in driver.current_url.lower():
-                            print("Redirected to login page - RRC may require authentication")
-                            scraping_status['last_count'] = 0
-                            return
-                        
-                        # Parse the results page
-                        soup = BeautifulSoup(driver.page_source, 'html.parser')
-                        permits = parse_rrc_results(soup, today)
-                        
-                        if permits:
-                            print(f"Found {len(permits)} permits via Selenium")
-                            scraping_status['last_count'] = len(permits)
-                            return
+                        if end_field:
+                            end_field.clear()
+                            end_field.send_keys(date_str)
+                            print(f"✅ Filled Submitted Date End: {date_str}")
                         else:
-                            print("No permits found in results")
+                            print("❌ Could not find Submitted Date End field")
                             
                     except Exception as e:
-                        print(f"Could not find or click Submit button: {e}")
+                        print(f"Error filling Submitted Date End field: {e}")
+                    
+                    # Find and click the Submit button
+                    try:
+                        # Look for the Submit button specifically
+                        submit_button = None
+                        
+                        # Try multiple ways to find the submit button
+                        try:
+                            submit_button = driver.find_element(By.XPATH, "//input[@type='submit' and @value='Submit']")
+                            print("Found Submit button by value='Submit'")
+                        except:
+                            try:
+                                submit_button = driver.find_element(By.XPATH, "//input[@type='submit']")
+                                print(f"Found Submit button with value: '{submit_button.get_attribute('value')}'")
+                            except:
+                                # Look for any button with "Submit" text
+                                submit_button = driver.find_element(By.XPATH, "//input[contains(@value, 'Submit')]")
+                                print(f"Found Submit button by partial match: '{submit_button.get_attribute('value')}'")
+                        
+                        if submit_button:
+                            print("✅ Found Submit button, clicking...")
+                            submit_button.click()
+                            
+                            # Wait for results page to load
+                            WebDriverWait(driver, 20).until(
+                                lambda driver: driver.current_url != search_url
+                            )
+                            
+                            print(f"After submit, current URL: {driver.current_url}")
+                            
+                            # Check if we got redirected to login
+                            if 'login' in driver.current_url.lower():
+                                print("⚠️ Redirected to login page - this shouldn't happen with public form")
+                                scraping_status['last_count'] = 0
+                                return
+                            
+                            # Parse the results page
+                            soup = BeautifulSoup(driver.page_source, 'html.parser')
+                            permits = parse_rrc_results(soup, today)
+                            
+                            if permits:
+                                print(f"✅ Found {len(permits)} permits via Selenium")
+                                scraping_status['last_count'] = len(permits)
+                                return
+                            else:
+                                print("No permits found in results")
+                        else:
+                            print("❌ Could not find Submit button")
+                            
+                    except Exception as e:
+                        print(f"Error clicking Submit button: {e}")
                         # Try alternative button selectors
                         try:
                             submit_buttons = driver.find_elements(By.XPATH, "//input[@type='submit']")
@@ -296,18 +360,32 @@ def scrape_rrc_permits():
                     'Referer': 'https://webapps.rrc.state.tx.us/'
                 })
                 
-                # Get the form page
-                form_url = "https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do"
-                form_response = session.get(form_url, timeout=30)
-                print(f"Form page status: {form_response.status_code}")
+                # Try to access the public permit search directly (no login required)
+                search_url = "https://webapps.rrc.state.tx.us/DP/initializePublicQueryAction.do"
+                print(f"Attempting to access public search: {search_url}")
                 
-                if form_response.status_code == 200:
-                    soup = BeautifulSoup(form_response.content, 'html.parser')
+                response = session.get(search_url, timeout=30)
+                print(f"Search page status: {response.status_code}")
+                print(f"Final URL: {response.url}")
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
                     
-                    # Find the search form
+                    # Check if we're on the correct page (should contain "Search for W-1s")
+                    if "Search for W-1s" in response.text or "Drilling Permit" in response.text:
+                        print("✅ Successfully loaded the RRC public query form")
+                    elif 'login' in response.url.lower() or soup.find('input', {'name': 'userid'}):
+                        print("⚠️ Redirected to login page - this shouldn't happen with public form")
+                        scraping_status['last_count'] = 0
+                        return
+                    else:
+                        print("⚠️ Page content doesn't match expected RRC query form")
+                        print(f"Page contains: {response.text[:500]}...")
+                    
+                    # Look for the permit search form
                     form = soup.find('form')
                     if form:
-                        print("Found form, extracting fields...")
+                        print("Found permit search form, extracting fields...")
                         
                         # Extract form action and method
                         action = form.get('action', '')
@@ -320,6 +398,7 @@ def scrape_rrc_permits():
                             if name:
                                 if name == 'submittedDateBegin' or name == 'submittedDateEnd':
                                     form_data[name] = date_str
+                                    print(f"Setting {name} to {date_str}")
                                 elif input_field.get('type') == 'submit':
                                     form_data[name] = input_field.get('value', 'Submit')
                                 elif input_field.get('type') == 'hidden':
@@ -329,7 +408,7 @@ def scrape_rrc_permits():
                         
                         # Submit the form
                         if action:
-                            submit_url = urljoin(form_url, action)
+                            submit_url = urljoin(search_url, action)
                             print(f"Submitting form to: {submit_url}")
                             print(f"Form data: {form_data}")
                             
@@ -345,9 +424,17 @@ def scrape_rrc_permits():
                                     print(f"Found {len(permits)} permits via form submission")
                                     scraping_status['last_count'] = len(permits)
                                     return
-                                    
+                                else:
+                                    print("No permits found in search results")
+                    else:
+                        print("No search form found on page")
+                else:
+                    print(f"Failed to access search page: {response.status_code}")
+                    
             except Exception as requests_error:
                 print(f"Requests fallback also failed: {requests_error}")
+                import traceback
+                print(f"Requests error details: {traceback.format_exc()}")
                 
             print("No new permits found for today")
             scraping_status['last_count'] = 0
