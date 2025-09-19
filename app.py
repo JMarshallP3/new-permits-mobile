@@ -1725,7 +1725,7 @@ def generate_html():
                 }}
                 
                 .theme-toggle {{
-                    top: 1rem;
+                    top: 3rem;
                     right: 1rem;
                 }}
             }}
@@ -1884,7 +1884,7 @@ def generate_html():
 
                 /* Theme toggle adjustments */
                 .theme-toggle {{
-                    top: 1rem !important;
+                    top: 3rem !important;
                     right: 1rem !important;
                     padding: 0.5rem !important;
                 }}
@@ -3253,17 +3253,50 @@ def debug_sw():
 @app.route('/static/icon-512.png')
 def serve_icon_512():
     """Serve the main app icon"""
-    return send_from_directory('static', 'icon-512.png', mimetype='image/png')
+    print("DEBUG: Serving icon-512.png")
+    try:
+        resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving icon-512.png: {e}")
+        return "Icon not found", 404
 
 @app.route('/static/apple-touch-icon.png')
 def serve_apple_touch_icon():
     """Serve the Apple touch icon"""
-    return send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+    print("DEBUG: Serving apple-touch-icon.png")
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
+        return "Icon not found", 404
 
 @app.route('/static/apple-touch-icon-120x120.png')
 def serve_apple_touch_icon_120():
     """Serve the Apple touch icon 120x120"""
-    return send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+    print("DEBUG: Serving apple-touch-icon-120x120.png")
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
+        return "Icon not found", 404
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon"""
+    print("DEBUG: Serving favicon.ico")
+    try:
+        resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon: {e}")
+        return "Favicon not found", 404
 
 @app.route('/api/dismiss/<int:permit_id>', methods=['POST'])
 def api_dismiss_permit(permit_id):
