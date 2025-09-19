@@ -905,7 +905,6 @@ def generate_html():
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <title>New Permits</title>
         <link rel="manifest" href="/static/manifest.webmanifest">
-        <link rel="stylesheet" href="/static/mobile-compact.css">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="New Permits">
@@ -1641,6 +1640,176 @@ def generate_html():
             
             .header {{
                 animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1);
+            }}
+            
+            /* Mobile Compact Layout */
+            @media (max-width: 430px) {{
+                /* Debug: Add a visible border to confirm CSS is loading */
+                body {{
+                    border: 2px solid red !important;
+                }}
+                
+                /* Typography scale: keep inputs >=16px to avoid iOS zoom */
+                body {{ 
+                    font-size: 15px !important; 
+                    line-height: 1.35 !important; 
+                }}
+                h1 {{ 
+                    font-size: clamp(18px, 5vw, 22px) !important; 
+                    margin: 8px 0 !important; 
+                }}
+                h2 {{ 
+                    font-size: clamp(16px, 4.2vw, 20px) !important; 
+                    margin: 6px 0 !important; 
+                }}
+                h3 {{ 
+                    font-size: clamp(15px, 3.8vw, 18px) !important; 
+                    margin: 6px 0 !important; 
+                }}
+
+                /* Top controls stack: tighten gaps/padding */
+                .controls {{
+                    gap: 8px !important;
+                    padding: 1rem !important;
+                }}
+                .control-row {{ 
+                    margin: 4px 0 !important; 
+                }}
+
+                /* Buttons: smaller text/padding but keep 44px target */
+                .btn, button, [role="button"] {{
+                    font-size: 14px !important;
+                    padding: 8px 12px !important;
+                    min-height: 44px !important;
+                    line-height: 1.1 !important;
+                }}
+
+                /* Inputs/selects: keep font-size >= 16px (no zoom on iOS) */
+                input, select, textarea {{
+                    font-size: 16px !important;
+                    padding: 8px 10px !important;
+                    min-height: 44px !important;
+                }}
+
+                /* Cards: reduce padding, radius, gaps */
+                .permit-card, [data-permit-id] {{
+                    padding: 10px 12px !important;
+                    border-radius: 10px !important;
+                    margin: 8px 0 !important;
+                }}
+                .permit-header {{
+                    gap: 6px !important;
+                    margin-bottom: 0.75rem !important;
+                }}
+
+                /* County sections: tighter header and spacing */
+                .county-header {{
+                    padding: 8px 4px !important;
+                    margin-bottom: 6px !important;
+                }}
+
+                /* Badges/chips smaller */
+                .permit-county {{
+                    padding: 4px 8px !important;
+                    font-size: 12px !important;
+                }}
+
+                /* Header adjustments */
+                .header {{
+                    margin-bottom: 1rem !important;
+                    padding: 0.5rem 0 !important;
+                }}
+
+                /* Status section adjustments */
+                .status {{
+                    padding: 0.75rem !important;
+                    margin-bottom: 0.75rem !important;
+                }}
+
+                /* Container adjustments */
+                .container {{
+                    padding: 1rem !important;
+                }}
+
+                /* More aggressive spacing reduction */
+                .county-section {{
+                    margin-bottom: 1.5rem !important;
+                }}
+
+                .permit-info h3 {{
+                    margin-bottom: 0.5rem !important;
+                }}
+
+                .permit-detail {{
+                    margin-bottom: 0.5rem !important;
+                }}
+
+                .permit-actions {{
+                    margin-top: 0.75rem !important;
+                    gap: 0.5rem !important;
+                }}
+
+                /* Filters section */
+                .filters-section {{
+                    margin: 1rem 0 !important;
+                    padding: 1rem !important;
+                }}
+
+                .filters-heading {{
+                    margin-bottom: 0.75rem !important;
+                }}
+
+                .filters-actions {{
+                    gap: 0.75rem !important;
+                }}
+
+                .controls-spacer {{
+                    height: 12px !important;
+                }}
+
+                .export-notify {{
+                    gap: 0.75rem !important;
+                }}
+
+                /* Grid adjustments */
+                .permits-grid {{
+                    gap: 0.75rem !important;
+                }}
+
+                /* Theme toggle adjustments */
+                .theme-toggle {{
+                    top: 1rem !important;
+                    right: 1rem !important;
+                    padding: 0.5rem !important;
+                }}
+
+                /* Avoid accidental horizontal scroll */
+                body {{ 
+                    overflow-x: hidden !important; 
+                }}
+            }}
+
+            /* Ultra small devices */
+            @media (max-width: 360px) {{
+                body {{ 
+                    font-size: 14px !important; 
+                }}
+                .btn, button {{ 
+                    padding: 8px 10px !important; 
+                }}
+                .permit-card, [data-permit-id] {{ 
+                    padding: 8px 10px !important; 
+                }}
+                .controls {{
+                    padding: 0.75rem !important;
+                }}
+                .header {{
+                    margin-bottom: 1rem !important;
+                    padding: 0.5rem 0 !important;
+                }}
+                .container {{
+                    padding: 0.75rem !important;
+                }}
             }}
         </style>
     </head>
