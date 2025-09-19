@@ -1008,13 +1008,14 @@ def generate_html():
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-        <title>New Permits</title>
+        <title>Permit Tracker</title>
         <link rel="manifest" href="/manifest.webmanifest">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <meta name="apple-mobile-web-app-title" content="New Permits">
+        <meta name="apple-mobile-web-app-title" content="Permit Tracker">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="theme-color" content="#667eea">
+        <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
         <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
         <link rel="apple-touch-icon" sizes="120x120" href="/static/apple-touch-icon-120x120.png">
         <style>
@@ -1929,8 +1930,7 @@ def generate_html():
         
         <div class="container">
             <div class="header">
-                <h1>New Permits</h1>
-                <p>Texas Railroad Commission Monitor</p>
+                <h1>Permit Tracker</h1>
             </div>
             
             <div class="controls">
@@ -3213,15 +3213,16 @@ def manifest():
     """Serve the manifest at root with no cache"""
     print("DEBUG: Serving inline manifest")
     content = """{
-  "name": "Permit Watch",
-  "short_name": "Permits",
+  "name": "Permit Tracker",
+  "short_name": "Permit Tracker",
   "start_url": "/?source=pwa",
   "display": "standalone",
   "background_color": "#0E1525",
   "theme_color": "#0E1525",
   "icons": [
-    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/static/apple-touch-icon-120x120.png", "sizes": "120x120", "type": "image/png" }
   ]
 }"""
     print(f"DEBUG: Manifest content length: {len(content)}")
