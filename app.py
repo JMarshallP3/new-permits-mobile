@@ -26,7 +26,7 @@ except ImportError:
 
 import base64
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///permits.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -2615,7 +2615,7 @@ def generate_html():
                 console.log('Attempting to subscribe user...');
                 
                 // Fetch the VAPID public key from the server
-                return fetch('/api/push/public-key')
+                return fetch('/api/vapid-public-key')
                     .then(response => response.json())
                     .then(data => {{
                         console.log('Received public key from server');
