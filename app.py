@@ -2864,8 +2864,8 @@ def api_dismiss_permit(permit_id):
         print(f"Error dismissing permit: {e}")
         return jsonify({'success': False, 'error': 'Failed to dismiss permit'}), 500
 
-@app.route('/api/push-test')
-def api_push_test():
+@app.route('/api/push-status')
+def api_push_status():
     """Test endpoint to check push notification setup"""
     return jsonify({
         'pywebpush_available': PUSH_NOTIFICATIONS_AVAILABLE,
