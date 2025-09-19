@@ -3025,16 +3025,58 @@ def serve_manifest():
 @app.route('/sw.js')
 def service_worker():
     """Serve the service worker at root with no cache"""
-    resp = send_from_directory(app.static_folder, 'sw.js', mimetype='application/javascript')
-    resp.headers['Cache-Control'] = 'no-cache'
-    return resp
+    print("DEBUG: Attempting to serve service worker")
+    try:
+        with open('static/sw.js', 'r') as f:
+            content = f.read()
+        print(f"DEBUG: Service worker content length: {len(content)}")
+        resp = app.response_class(content, mimetype='application/javascript')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except FileNotFoundError:
+        print("DEBUG: Service worker file not found")
+        return "Service worker not found", 404
+    except Exception as e:
+        print(f"DEBUG: Error serving service worker: {e}")
+        return f"Error: {e}", 500
 
 @app.route('/manifest.webmanifest')
 def manifest():
     """Serve the manifest at root with no cache"""
-    resp = send_from_directory(app.static_folder, 'manifest.webmanifest', mimetype='application/manifest+json')
-    resp.headers['Cache-Control'] = 'no-cache'
-    return resp
+    print("DEBUG: Attempting to serve manifest")
+    try:
+        with open('static/manifest.webmanifest', 'r') as f:
+            content = f.read()
+        print(f"DEBUG: Manifest content length: {len(content)}")
+        resp = app.response_class(content, mimetype='application/manifest+json')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except FileNotFoundError:
+        print("DEBUG: Manifest file not found")
+        return "Manifest not found", 404
+    except Exception as e:
+        print(f"DEBUG: Error serving manifest: {e}")
+        return f"Error: {e}", 500
+
+@app.route('/debug/files')
+def debug_files():
+    """Debug route to check what files are available"""
+    import os
+    try:
+        files = os.listdir('static')
+        return f"Files in static directory: {files}"
+    except Exception as e:
+        return f"Error listing files: {e}"
+
+@app.route('/debug/sw')
+def debug_sw():
+    """Debug route to check service worker file"""
+    try:
+        with open('static/sw.js', 'r') as f:
+            content = f.read()
+        return f"Service worker content (first 200 chars): {content[:200]}..."
+    except Exception as e:
+        return f"Error reading service worker: {e}"
 
 @app.route('/static/icon-512.png')
 def serve_icon_512():
