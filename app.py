@@ -2519,7 +2519,7 @@ def generate_html():
             
             // Push notification functions
             let isSubscribed = false;
-            let swRegistration = null;
+            // Service worker registration is handled in subscribeUser()
             
             function urlBase64ToUint8Array(base64String) {{
                 const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -2582,16 +2582,17 @@ def generate_html():
                 }});
             }}
             
-            function unsubscribeUser() {{
-                return swRegistration.pushManager.getSubscription()
-                    .then(function(subscription) {{
-                        if (subscription) {{
-                            return subscription.unsubscribe();
-                        }}
-                    }})
-                    .then(function() {{
+            async function unsubscribeUser() {{
+                try {{
+                    // Get the service worker registration
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.getSubscription();
+                    
+                    if (subscription) {{
+                        await subscription.unsubscribe();
+                        
                         // Send unsubscribe request to server
-                        return fetch('/api/push/unsubscribe', {{
+                        await fetch('/api/push/unsubscribe', {{
                             method: 'POST',
                             headers: {{
                                 'Content-Type': 'application/json',
@@ -2600,15 +2601,15 @@ def generate_html():
                                 endpoint: subscription.endpoint
                             }})
                         }});
-                    }})
-                    .then(function() {{
-                        console.log('User is unsubscribed.');
-                        isSubscribed = false;
-                        updateBtn();
-                    }})
-                    .catch(function(error) {{
-                        console.log('Error unsubscribing', error);
-                    }});
+                    }}
+                    
+                    console.log('User is unsubscribed.');
+                    isSubscribed = false;
+                    updateBtn();
+                    
+                }} catch (error) {{
+                    console.log('Error unsubscribing', error);
+                }}
             }}
             
             async function subscribeUser() {{
@@ -2756,29 +2757,7 @@ def generate_html():
                     
                     if ('serviceWorker' in navigator && 'PushManager' in window) {{
                         console.log('Service Worker and Push is supported');
-                        
-                        navigator.serviceWorker.register('/sw.js')
-                        .then(function(swReg) {{
-                            console.log('Service Worker is registered', swReg);
-                            swRegistration = swReg;
-                            
-                            return swReg.pushManager.getSubscription();
-                        }})
-                        .then(function(subscription) {{
-                            isSubscribed = !(subscription === null);
-                            updateBtn();
-                            
-                            if (isSubscribed) {{
-                                console.log('User IS subscribed.');
-                                // Update preferences on server when already subscribed
-                                updatePreferencesOnServer();
-                            }} else {{
-                                console.log('User is NOT subscribed.');
-                            }}
-                        }})
-                        .catch(function(error) {{
-                            console.log('An error occurred during service worker registration', error);
-                        }});
+                        // Service worker will be registered when user clicks Enable Notifications
                     }} else {{
                         console.warn('Push messaging is not supported, but showing button anyway');
                         // Don't hide the button - let user try anyway
