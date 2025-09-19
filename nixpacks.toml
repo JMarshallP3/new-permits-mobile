@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["python39", "chromium", "chromedriver"]
+nixPkgs = ["python312", "chromium", "chromedriver"]
 
 [phases.install]
-cmds = ["pip install -r cloud_requirements.txt"]
+cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["echo 'Build complete'"]

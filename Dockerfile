@@ -49,7 +49,7 @@ WORKDIR /app
 
 # Copy requirements and install Python dependencies
 COPY cloud_requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app.py .

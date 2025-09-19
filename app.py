@@ -19,6 +19,22 @@ try:
 except ImportError as e:
     print(f"❌ Warning: pywebpush not available. Push notifications disabled. Error: {e}")
     PUSH_NOTIFICATIONS_AVAILABLE = False
+    
+    # Fallback: Try to implement basic push functionality without pywebpush
+    try:
+        import requests
+        import json
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        from cryptography.hazmat.backends import default_backend
+        import base64
+        import struct
+        PUSH_NOTIFICATIONS_AVAILABLE = True
+        print("✅ Using fallback push implementation")
+    except ImportError as e2:
+        print(f"❌ Fallback push implementation also failed: {e2}")
+        PUSH_NOTIFICATIONS_AVAILABLE = False
     # Create dummy classes for compatibility
     class WebPushException(Exception):
         pass
@@ -131,18 +147,55 @@ def send_push_notification(subscription, title, body, url=None):
             "badge": "/static/apple-touch-icon.png"
         })
         
-        webpush(
-            subscription_info=subscription,
-            data=payload,
-            vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims=VAPID_CLAIMS
-        )
-        return True
+        # Try pywebpush first
+        if 'webpush' in globals() and callable(webpush):
+            webpush(
+                subscription_info=subscription,
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY,
+                vapid_claims=VAPID_CLAIMS
+            )
+            return True
+        else:
+            # Fallback: Simple HTTP request to push service
+            return send_push_fallback(subscription, payload)
+            
     except WebPushException as e:
         print(f"Push notification failed: {e}")
         return False
     except Exception as e:
         print(f"Unexpected error sending push notification: {e}")
+        return False
+
+def send_push_fallback(subscription, payload):
+    """Fallback push notification using direct HTTP requests"""
+    try:
+        import requests
+        
+        # Extract endpoint
+        endpoint = subscription.get('endpoint')
+        
+        if not endpoint:
+            print("Missing push subscription endpoint")
+            return False
+        
+        # Send HTTP request to push service
+        headers = {
+            'Content-Type': 'application/json',
+            'TTL': '86400'
+        }
+        
+        response = requests.post(endpoint, data=payload, headers=headers, timeout=10)
+        
+        if response.status_code in [200, 201, 202]:
+            print(f"✅ Push notification sent successfully")
+            return True
+        else:
+            print(f"❌ Push notification failed: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Fallback push notification failed: {e}")
         return False
 
 def send_notifications_for_new_permits(new_permits):
