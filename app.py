@@ -148,6 +148,21 @@ def send_push_notification(subscription, title, body, url=None):
         # Debug: Print subscription data structure
         print(f"DEBUG: Subscription data: {subscription}")
         
+        # Validate subscription data
+        if not subscription.get('endpoint'):
+            print("ERROR: Missing endpoint in subscription")
+            return False
+            
+        keys = subscription.get('keys', {})
+        p256dh = keys.get('p256dh', '')
+        auth = keys.get('auth', '')
+        
+        print(f"DEBUG: p256dh length: {len(p256dh)}, auth length: {len(auth)}")
+        
+        if not p256dh or not auth:
+            print(f"ERROR: Missing or empty keys - p256dh: '{p256dh}', auth: '{auth}'")
+            return False
+        
         payload = json.dumps({
             "title": title,
             "body": body,
@@ -2913,6 +2928,9 @@ def api_push_subscribe():
     """Subscribe to push notifications with device-scoped preferences"""
     data = request.get_json()
     
+    # Debug: Print received data
+    print(f"DEBUG: Received subscription data: {data}")
+    
     if not data or not data.get('endpoint'):
         return jsonify({'error': 'Missing subscription data'}), 400
     
@@ -2924,30 +2942,41 @@ def api_push_subscribe():
         endpoint = data['endpoint']
         prefs_json = json.dumps(data.get('preferences', {}))
         
+        # Extract keys with debugging
+        keys = data.get('keys', {})
+        p256dh = keys.get('p256dh', '')
+        auth = keys.get('auth', '')
+        
+        print(f"DEBUG: Extracted keys - p256dh length: {len(p256dh)}, auth length: {len(auth)}")
+        print(f"DEBUG: p256dh: '{p256dh[:50]}...' (first 50 chars)")
+        print(f"DEBUG: auth: '{auth[:50]}...' (first 50 chars)")
+        
         # Upsert subscription by endpoint
         existing = DeviceSubscription.query.filter_by(endpoint=endpoint).first()
         
         if existing:
             # Update existing subscription
             existing.device_id = device_id
-            existing.p256dh = data.get('keys', {}).get('p256dh', '')
-            existing.auth = data.get('keys', {}).get('auth', '')
+            existing.p256dh = p256dh
+            existing.auth = auth
             existing.prefs_json = prefs_json
             existing.user_agent = request.headers.get('User-Agent', '')
             existing.updated_at = datetime.utcnow()
             existing.error_count = 0  # Reset error count on successful subscription
             existing.last_error = None
+            print(f"DEBUG: Updated existing subscription with keys")
         else:
             # Create new subscription
             subscription = DeviceSubscription(
                 device_id=device_id,
                 endpoint=endpoint,
-                p256dh=data.get('keys', {}).get('p256dh', ''),
-                auth=data.get('keys', {}).get('auth', ''),
+                p256dh=p256dh,
+                auth=auth,
                 prefs_json=prefs_json,
                 user_agent=request.headers.get('User-Agent', '')
             )
             db.session.add(subscription)
+            print(f"DEBUG: Created new subscription with keys")
         
         db.session.commit()
         
