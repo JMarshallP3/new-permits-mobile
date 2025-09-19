@@ -131,6 +131,12 @@ if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
     print("Warning: VAPID keys not configured. Push notifications will be disabled.")
     print("Set VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY environment variables.")
     PUSH_NOTIFICATIONS_AVAILABLE = False
+else:
+    # Debug: Check VAPID key format
+    print(f"DEBUG: VAPID_PRIVATE_KEY length: {len(VAPID_PRIVATE_KEY)}")
+    print(f"DEBUG: VAPID_PUBLIC_KEY length: {len(VAPID_PUBLIC_KEY)}")
+    print(f"DEBUG: VAPID_PRIVATE_KEY starts with: {VAPID_PRIVATE_KEY[:50]}...")
+    print(f"DEBUG: VAPID_PUBLIC_KEY starts with: {VAPID_PUBLIC_KEY[:50]}...")
 
 def send_push_notification(subscription, title, body, url=None):
     """Send push notification to a subscription"""
@@ -139,6 +145,9 @@ def send_push_notification(subscription, title, body, url=None):
         return False
         
     try:
+        # Debug: Print subscription data structure
+        print(f"DEBUG: Subscription data: {subscription}")
+        
         payload = json.dumps({
             "title": title,
             "body": body,
@@ -149,15 +158,18 @@ def send_push_notification(subscription, title, body, url=None):
         
         # Try pywebpush first
         if 'webpush' in globals() and callable(webpush):
+            print(f"DEBUG: Using pywebpush with subscription: {subscription}")
             webpush(
                 subscription_info=subscription,
                 data=payload,
                 vapid_private_key=VAPID_PRIVATE_KEY,
                 vapid_claims=VAPID_CLAIMS
             )
+            print("DEBUG: Push notification sent successfully")
             return True
         else:
             # Fallback: Simple HTTP request to push service
+            print("DEBUG: Using fallback push method")
             return send_push_fallback(subscription, payload)
             
     except WebPushException as e:
@@ -165,6 +177,8 @@ def send_push_notification(subscription, title, body, url=None):
         return False
     except Exception as e:
         print(f"Unexpected error sending push notification: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def send_push_fallback(subscription, payload):
