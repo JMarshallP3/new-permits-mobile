@@ -2613,30 +2613,37 @@ def generate_html():
             
             function subscribeUser() {{
                 console.log('Attempting to subscribe user...');
-                const applicationServerKey = urlBase64ToUint8Array('{VAPID_PUBLIC_KEY}');
-                return swRegistration.pushManager.subscribe({{
-                    userVisibleOnly: true,
-                    applicationServerKey: applicationServerKey
-                }})
-                .then(function(subscription) {{
-                    console.log('User is subscribed:', subscription);
-                    return updateSubscriptionOnServer(subscription);
-                }})
-                .then(function(response) {{
-                    console.log('Server response:', response);
-                    if (response.ok) {{
-                        isSubscribed = true;
-                        updateBtn();
-                        console.log('Successfully subscribed!');
-                    }} else {{
-                        console.error('Server subscription failed:', response);
-                        throw new Error('Server subscription failed');
-                    }}
-                }})
-                .catch(function(err) {{
-                    console.log('Failed to subscribe the user:', err);
-                    alert('Failed to enable notifications. Please try again.');
-                }});
+                
+                // Fetch the VAPID public key from the server
+                return fetch('/api/push/public-key')
+                    .then(response => response.json())
+                    .then(data => {{
+                        console.log('Received public key from server');
+                        const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
+                        return swRegistration.pushManager.subscribe({{
+                            userVisibleOnly: true,
+                            applicationServerKey: applicationServerKey
+                        }});
+                    }})
+                    .then(function(subscription) {{
+                        console.log('User is subscribed:', subscription);
+                        return updateSubscriptionOnServer(subscription);
+                    }})
+                    .then(function(response) {{
+                        console.log('Server response:', response);
+                        if (response.ok) {{
+                            isSubscribed = true;
+                            updateBtn();
+                            console.log('Successfully subscribed!');
+                        }} else {{
+                            console.error('Server subscription failed:', response);
+                            throw new Error('Server subscription failed');
+                        }}
+                    }})
+                    .catch(function(err) {{
+                        console.log('Failed to subscribe the user:', err);
+                        alert('Failed to enable notifications. Please try again.');
+                    }});
             }}
             
             function updateBtn() {{
