@@ -123,7 +123,8 @@ scraping_status = {
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_CLAIMS = {
-    "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@rrc-monitor.com')
+    "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@rrc-monitor.com'),
+    "aud": "https://web.push.apple.com"  # Apple-specific audience
 }
 
 # Check if VAPID keys are properly configured
@@ -174,12 +175,33 @@ def send_push_notification(subscription, title, body, url=None):
         # Try pywebpush first
         if 'webpush' in globals() and callable(webpush):
             print(f"DEBUG: Using pywebpush with subscription: {subscription}")
-            webpush(
-                subscription_info=subscription,
-                data=payload,
-                vapid_private_key=VAPID_PRIVATE_KEY,
-                vapid_claims=VAPID_CLAIMS
-            )
+            
+            # Check if this is an Apple Push Notification endpoint
+            endpoint = subscription.get('endpoint', '')
+            is_apple = 'web.push.apple.com' in endpoint
+            
+            if is_apple:
+                print("DEBUG: Detected Apple Push Notification endpoint")
+                # Use Apple-specific VAPID claims
+                apple_claims = {
+                    "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@rrc-monitor.com'),
+                    "aud": "https://web.push.apple.com"
+                }
+                webpush(
+                    subscription_info=subscription,
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims=apple_claims
+                )
+            else:
+                print("DEBUG: Using standard VAPID claims")
+                webpush(
+                    subscription_info=subscription,
+                    data=payload,
+                    vapid_private_key=VAPID_PRIVATE_KEY,
+                    vapid_claims=VAPID_CLAIMS
+                )
+            
             print("DEBUG: Push notification sent successfully")
             return True
         else:
