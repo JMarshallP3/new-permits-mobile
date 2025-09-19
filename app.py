@@ -933,6 +933,39 @@ def generate_html():
                 border: 1px solid var(--border-color);
             }}
             
+            .filters-section {{
+                margin: 1.5rem 0;
+                padding: 1.5rem;
+                background: var(--bg-secondary);
+                border-radius: 16px;
+                border: 1px solid var(--border-color);
+            }}
+            
+            .filters-heading {{
+                font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: var(--text-primary);
+                margin-bottom: 1rem;
+                letter-spacing: -0.01em;
+            }}
+            
+            .filters-actions {{
+                display: flex;
+                gap: 1rem;
+                justify-content: flex-start;
+            }}
+            
+            .controls-spacer {{
+                height: 20px;
+            }}
+            
+            .export-notify {{
+                display: flex;
+                gap: 1rem;
+                justify-content: flex-start;
+            }}
+            
             .control-row {{
                 display: flex;
                 gap: 1.5rem;
@@ -1473,7 +1506,11 @@ def generate_html():
                     gap: 1rem;
                 }}
                 
-                .buttons {{
+                .filters-actions {{
+                    flex-direction: column;
+                }}
+                
+                .export-notify {{
                     flex-direction: column;
                 }}
                 
@@ -1531,11 +1568,8 @@ def generate_html():
             </div>
             
             <div class="controls">
+                <!-- 1) Sort By -->
                 <div class="control-row">
-                    <div class="control-group">
-                        <label for="search">Search:</label>
-                        <input type="text" id="search" name="search" placeholder="Search operator or lease name..." value="{search_term}">
-                    </div>
                     <div class="control-group">
                         <label for="sort">Sort By:</label>
                         <select id="sort" name="sort">
@@ -1547,22 +1581,53 @@ def generate_html():
                     </div>
                 </div>
                 
-                <div class="buttons">
-                    <button class="btn btn-primary" onclick="applyFilters()">
-                        🔍 Apply Filters
+                <!-- 2) Counties to Monitor (was Select Counties) -->
+                <div class="control-row">
+                    <button class="btn btn-info" onclick="openCountySelector()">
+                        📍 Counties to Monitor
                     </button>
-                    <button class="btn btn-outline-primary" onclick="clearFilters()">
-                        🗑️ Clear Filters
-                    </button>
-                    <button class="btn btn-outline-info" onclick="openViewCountiesSelector()">
-                        👁️ View Counties
-                    </button>
+                </div>
+                
+                <!-- 3) Update Permits -->
+                <div class="control-row">
                     <button class="btn btn-success" onclick="startScraping()">
                         🔄 Update Permits
                     </button>
-                    <button class="btn btn-info" onclick="openCountySelector()">
-                        📍 Select Counties
-                    </button>
+                </div>
+                
+                <!-- 4) Filters section -->
+                <section class="filters-section">
+                    <h2 class="filters-heading">Filters</h2>
+                    
+                    <!-- 5) Filter Counties (was View Counties) -->
+                    <div class="control-row">
+                        <button class="btn btn-outline-info" onclick="openViewCountiesSelector()">
+                            👁️ Filter Counties
+                        </button>
+                    </div>
+                    
+                    <!-- 6) Search with label above input -->
+                    <div class="control-row">
+                        <div class="control-group">
+                            <label for="search">Search:</label>
+                            <input type="text" id="search" name="search" placeholder="Search operator or lease name..." value="{search_term}">
+                        </div>
+                    </div>
+                    
+                    <!-- 7) Apply / Clear under search -->
+                    <div class="control-row filters-actions">
+                        <button class="btn btn-primary" onclick="applyFilters()">
+                            🔍 Apply Filters
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="clearFilters()">
+                            🗑️ Clear Filters
+                        </button>
+                    </div>
+                </section>
+                
+                <!-- 8) Spacer then Export/Notifications -->
+                <div class="controls-spacer"></div>
+                <div class="control-row export-notify">
                     <button class="btn btn-warning" onclick="exportCSV()">
                         📊 Export CSV
                     </button>
@@ -1671,7 +1736,7 @@ def generate_html():
             <!-- County Selector Modal -->
             <div id="county-selector" class="county-selector">
                 <div class="county-modal">
-                    <h3>Select Counties to Monitor</h3>
+                    <h3>Counties to Monitor</h3>
                     <div class="county-search-container">
                         <input type="text" id="countySearch" class="county-search-input" placeholder="Search counties...">
                     </div>
@@ -1697,7 +1762,7 @@ def generate_html():
             <!-- View Counties Selector Modal -->
             <div id="view-counties-selector" class="county-selector">
                 <div class="county-modal">
-                    <h3>Select Counties to View</h3>
+                    <h3>Filter Counties</h3>
                     <div class="county-search-container">
                         <input type="text" id="viewCountySearch" class="county-search-input" placeholder="Search counties...">
                     </div>
