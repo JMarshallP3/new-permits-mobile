@@ -3025,38 +3025,55 @@ def serve_manifest():
 @app.route('/sw.js')
 def service_worker():
     """Serve the service worker at root with no cache"""
-    print("DEBUG: Attempting to serve service worker")
-    try:
-        with open('static/sw.js', 'r') as f:
-            content = f.read()
-        print(f"DEBUG: Service worker content length: {len(content)}")
-        resp = app.response_class(content, mimetype='application/javascript')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
-    except FileNotFoundError:
-        print("DEBUG: Service worker file not found")
-        return "Service worker not found", 404
-    except Exception as e:
-        print(f"DEBUG: Error serving service worker: {e}")
-        return f"Error: {e}", 500
+    print("DEBUG: Serving inline service worker")
+    content = """self.addEventListener('push', (event) => {
+  const data = event.data ? event.data.json() : {};
+  const title = data.title || 'New permit';
+  const body  = data.body  || '';
+  const opts = {
+    body,
+    data: data.data || {},
+    icon: '/static/icon-512.png',
+    badge: '/static/icon-512.png'
+  };
+  event.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(clients.matchAll({ type:'window', includeUncontrolled:true }).then(list => {
+    for (const c of list) {
+      if ('focus' in c) { c.navigate(url); return c.focus(); }
+    }
+    if (clients.openWindow) return clients.openWindow(url);
+  }));
+});"""
+    print(f"DEBUG: Service worker content length: {len(content)}")
+    resp = app.response_class(content, mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 @app.route('/manifest.webmanifest')
 def manifest():
     """Serve the manifest at root with no cache"""
-    print("DEBUG: Attempting to serve manifest")
-    try:
-        with open('static/manifest.webmanifest', 'r') as f:
-            content = f.read()
-        print(f"DEBUG: Manifest content length: {len(content)}")
-        resp = app.response_class(content, mimetype='application/manifest+json')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
-    except FileNotFoundError:
-        print("DEBUG: Manifest file not found")
-        return "Manifest not found", 404
-    except Exception as e:
-        print(f"DEBUG: Error serving manifest: {e}")
-        return f"Error: {e}", 500
+    print("DEBUG: Serving inline manifest")
+    content = """{
+  "name": "Permit Watch",
+  "short_name": "Permits",
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "background_color": "#0E1525",
+  "theme_color": "#0E1525",
+  "icons": [
+    { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}"""
+    print(f"DEBUG: Manifest content length: {len(content)}")
+    resp = app.response_class(content, mimetype='application/manifest+json')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 @app.route('/debug/files')
 def debug_files():
