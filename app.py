@@ -951,7 +951,8 @@ def generate_html():
                 letter-spacing: 0.025em;
             }}
             
-            .control-group select {{
+            .control-group select,
+            .control-group input {{
                 padding: 0.75rem 1rem;
                 border: 2px solid var(--border-color);
                 border-radius: 12px;
@@ -963,7 +964,12 @@ def generate_html():
                 cursor: pointer;
             }}
             
-            .control-group select:focus {{
+            .control-group input {{
+                cursor: text;
+            }}
+            
+            .control-group select:focus,
+            .control-group input:focus {{
                 outline: none;
                 border-color: #667eea;
                 box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -1429,6 +1435,10 @@ def generate_html():
             <div class="controls">
                 <div class="control-row">
                     <div class="control-group">
+                        <label for="search">Search:</label>
+                        <input type="text" id="search" name="search" placeholder="Search operator or lease name..." value="{search_term}">
+                    </div>
+                    <div class="control-group">
                         <label for="sort">Sort By:</label>
                         <select id="sort" name="sort">
                             <option value="newest" {"selected" if sort_by == "newest" else ""}>Most Recent</option>
@@ -1442,6 +1452,9 @@ def generate_html():
                 <div class="buttons">
                     <button class="btn btn-primary" onclick="applyFilters()">
                         🔍 Apply Filters
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="clearFilters()">
+                        🗑️ Clear Filters
                     </button>
                     <button class="btn btn-success" onclick="startScraping()">
                         🔄 Update Permits
@@ -1564,11 +1577,19 @@ def generate_html():
         <script>
             function applyFilters() {{
                 const sort = document.getElementById('sort').value;
+                const search = document.getElementById('search').value;
                 
                 const params = new URLSearchParams();
                 if (sort) params.append('sort', sort);
+                if (search) params.append('search', search);
                 
                 window.location.href = '?' + params.toString();
+            }}
+            
+            function clearFilters() {{
+                document.getElementById('search').value = '';
+                document.getElementById('sort').value = 'newest';
+                window.location.href = '/';
             }}
             
             function startScraping() {{
@@ -2035,6 +2056,21 @@ def serve_service_worker():
     """Serve the service worker"""
     return send_from_directory('static', 'sw.js', mimetype='application/javascript')
 
+@app.route('/static/icon-512.png')
+def serve_icon_512():
+    """Serve the main app icon"""
+    return send_from_directory('static', 'icon-512.png', mimetype='image/png')
+
+@app.route('/static/apple-touch-icon.png')
+def serve_apple_touch_icon():
+    """Serve the Apple touch icon"""
+    return send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+
+@app.route('/static/apple-touch-icon-120x120.png')
+def serve_apple_touch_icon_120():
+    """Serve the Apple touch icon 120x120"""
+    return send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+
 @app.route('/api/dismiss/<int:permit_id>', methods=['POST'])
 def api_dismiss_permit(permit_id):
     """Dismiss a permit by removing it from the database"""
@@ -2058,6 +2094,22 @@ def api_push_test():
         'vapid_configured': bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),
         'service_worker_exists': True,  # We know this exists
         'status': 'Push notifications should work' if PUSH_NOTIFICATIONS_AVAILABLE else 'Limited functionality - pywebpush not available'
+    })
+
+@app.route('/api/debug-push')
+def api_debug_push():
+    """Debug endpoint for push notification troubleshooting"""
+    subscriptions = Subscription.query.all()
+    return jsonify({
+        'total_subscriptions': len(subscriptions),
+        'subscriptions': [{
+            'id': s.id,
+            'endpoint': s.endpoint[:50] + '...' if len(s.endpoint) > 50 else s.endpoint,
+            'session_id': s.session_id,
+            'created_at': s.created_at.isoformat()
+        } for s in subscriptions],
+        'vapid_public_key': VAPID_PUBLIC_KEY[:50] + '...' if len(VAPID_PUBLIC_KEY) > 50 else VAPID_PUBLIC_KEY,
+        'pywebpush_available': PUSH_NOTIFICATIONS_AVAILABLE
     })
 
 @app.route('/export/csv')
