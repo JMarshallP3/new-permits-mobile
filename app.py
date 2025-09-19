@@ -15,8 +15,9 @@ from urllib.parse import urljoin
 try:
     from pywebpush import webpush, WebPushException
     PUSH_NOTIFICATIONS_AVAILABLE = True
-except ImportError:
-    print("Warning: pywebpush not available. Push notifications disabled.")
+    print("✅ pywebpush imported successfully")
+except ImportError as e:
+    print(f"❌ Warning: pywebpush not available. Push notifications disabled. Error: {e}")
     PUSH_NOTIFICATIONS_AVAILABLE = False
     # Create dummy classes for compatibility
     class WebPushException(Exception):
@@ -2943,10 +2944,8 @@ def api_push_prefs():
 
 @app.route('/api/push/test', methods=['POST'])
 def api_push_test():
-    """Send a test notification (dev only)"""
-    # Only allow in development
-    if not app.debug:
-        return jsonify({'error': 'Test notifications only available in debug mode'}), 403
+    """Send a test notification"""
+    # Allow test notifications in production for debugging
     
     data = request.get_json()
     device_id = data.get('deviceId')
