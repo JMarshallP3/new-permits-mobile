@@ -1016,6 +1016,9 @@ def generate_html():
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="theme-color" content="#667eea">
         <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
+        <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
         <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
         <link rel="apple-touch-icon" sizes="120x120" href="/static/apple-touch-icon-120x120.png">
         <style>
@@ -3221,8 +3224,11 @@ def manifest():
   "theme_color": "#0E1525",
   "icons": [
     { "src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/static/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "/static/apple-touch-icon-120x120.png", "sizes": "120x120", "type": "image/png" }
+    { "src": "/static/apple-touch-icon-120x120.png", "sizes": "120x120", "type": "image/png" },
+    { "src": "/static/favicon-32x32.png", "sizes": "32x32", "type": "image/png" },
+    { "src": "/static/favicon-16x16.png", "sizes": "16x16", "type": "image/png" }
   ]
 }"""
     print(f"DEBUG: Manifest content length: {len(content)}")
@@ -3284,6 +3290,42 @@ def serve_apple_touch_icon_120():
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
+        return "Icon not found", 404
+
+@app.route('/static/icon-192.png')
+def serve_icon_192():
+    """Serve the 192x192 icon"""
+    print("DEBUG: Serving icon-192.png")
+    try:
+        resp = send_from_directory('static', 'icon-192.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving icon-192.png: {e}")
+        return "Icon not found", 404
+
+@app.route('/static/favicon-32x32.png')
+def serve_favicon_32():
+    """Serve the 32x32 favicon"""
+    print("DEBUG: Serving favicon-32x32.png")
+    try:
+        resp = send_from_directory('static', 'favicon-32x32.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon-32x32.png: {e}")
+        return "Icon not found", 404
+
+@app.route('/static/favicon-16x16.png')
+def serve_favicon_16():
+    """Serve the 16x16 favicon"""
+    print("DEBUG: Serving favicon-16x16.png")
+    try:
+        resp = send_from_directory('static', 'favicon-16x16.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon-16x16.png: {e}")
         return "Icon not found", 404
 
 @app.route('/favicon.ico')
