@@ -2621,6 +2621,9 @@ def generate_html():
             
             function updateSubscriptionOnServer(subscription) {{
                 console.log('Sending subscription to server:', subscription);
+                console.log('Subscription keys object:', subscription.keys);
+                console.log('Keys type:', typeof subscription.keys);
+                console.log('Keys keys:', Object.keys(subscription.keys || {{}}));
                 
                 const deviceId = getOrCreateDeviceId();
                 const preferences = {{
@@ -2630,17 +2633,22 @@ def generate_html():
                     viewFilterCounties: Array.from(getSet('viewFilterCounties'))
                 }};
                 
+                const payload = {{
+                    deviceId: deviceId,
+                    endpoint: subscription.endpoint,
+                    keys: subscription.keys,
+                    preferences: preferences
+                }};
+                
+                console.log('Payload being sent:', payload);
+                console.log('Payload keys:', payload.keys);
+                
                 return fetch('/api/push/subscribe', {{
                     method: 'POST',
                     headers: {{
                         'Content-Type': 'application/json',
                     }},
-                    body: JSON.stringify({{
-                        deviceId: deviceId,
-                        endpoint: subscription.endpoint,
-                        keys: subscription.keys,
-                        preferences: preferences
-                    }})
+                    body: JSON.stringify(payload)
                 }});
             }}
             
@@ -2741,6 +2749,9 @@ def generate_html():
                     }});
                     
                     console.log('User is subscribed:', subscription);
+                    console.log('Subscription keys:', subscription.keys);
+                    console.log('p256dh:', subscription.keys?.p256dh);
+                    console.log('auth:', subscription.keys?.auth);
                     
                     // 5) Send subscription to server
                     const serverResponse = await updateSubscriptionOnServer(subscription);
