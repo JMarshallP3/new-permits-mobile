@@ -2619,11 +2619,18 @@ def generate_html():
                 return outputArray;
             }}
             
-            function updateSubscriptionOnServer(subscription) {{
+            function arrayBufferToBase64(buffer) {{
+                const bytes = new Uint8Array(buffer);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {{
+                    binary += String.fromCharCode(bytes[i]);
+                }}
+                return window.btoa(binary);
+            }}
+            
+            function updateSubscriptionOnServer(subscription, keys) {{
                 console.log('Sending subscription to server:', subscription);
-                console.log('Subscription keys object:', subscription.keys);
-                console.log('Keys type:', typeof subscription.keys);
-                console.log('Keys keys:', Object.keys(subscription.keys || {{}}));
+                console.log('Keys being sent:', keys);
                 
                 const deviceId = getOrCreateDeviceId();
                 const preferences = {{
@@ -2636,7 +2643,7 @@ def generate_html():
                 const payload = {{
                     deviceId: deviceId,
                     endpoint: subscription.endpoint,
-                    keys: subscription.keys,
+                    keys: keys,
                     preferences: preferences
                 }};
                 
@@ -2749,12 +2756,31 @@ def generate_html():
                     }});
                     
                     console.log('User is subscribed:', subscription);
-                    console.log('Subscription keys:', subscription.keys);
-                    console.log('p256dh:', subscription.keys?.p256dh);
-                    console.log('auth:', subscription.keys?.auth);
+                    
+                    // Extract keys using getKey() method
+                    const p256dh = subscription.getKey('p256dh');
+                    const auth = subscription.getKey('auth');
+                    
+                    console.log('p256dh key:', p256dh);
+                    console.log('auth key:', auth);
+                    
+                    // Convert ArrayBuffer to base64 string
+                    const p256dhBase64 = p256dh ? arrayBufferToBase64(p256dh) : '';
+                    const authBase64 = auth ? arrayBufferToBase64(auth) : '';
+                    
+                    console.log('p256dh base64:', p256dhBase64);
+                    console.log('auth base64:', authBase64);
+                    
+                    // Create keys object
+                    const keys = {{
+                        p256dh: p256dhBase64,
+                        auth: authBase64
+                    }};
+                    
+                    console.log('Keys object:', keys);
                     
                     // 5) Send subscription to server
-                    const serverResponse = await updateSubscriptionOnServer(subscription);
+                    const serverResponse = await updateSubscriptionOnServer(subscription, keys);
                     console.log('Server response:', serverResponse);
                     
                     if (serverResponse.ok) {{
