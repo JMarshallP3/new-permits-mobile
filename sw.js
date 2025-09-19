@@ -1,9 +1,11 @@
 ﻿// Service Worker for New Permits Mobile App
-const CACHE_NAME = 'new-permits-v1';
+const CACHE_NAME = 'new-permits-v2';
 const urlsToCache = [
   '/',
   '/static/manifest.webmanifest',
-  '/static/icon-512.png'
+  '/static/icon-512.png',
+  '/static/apple-touch-icon.png',
+  '/static/apple-touch-icon-120x120.png'
 ];
 
 // Install event
@@ -42,12 +44,16 @@ self.addEventListener('activate', event => {
 
 // Push notification event
 self.addEventListener('push', event => {
+  console.log('Push event received:', event);
+  
   let data = {};
   
   if (event.data) {
     try {
       data = event.data.json();
+      console.log('Push data:', data);
     } catch (e) {
+      console.log('Error parsing push data:', e);
       data = { body: event.data.text() };
     }
   }
@@ -62,34 +68,33 @@ self.addEventListener('push', event => {
       primaryKey: 1,
       url: data.url || '/'
     },
-    actions: [
-      {
-        action: 'explore',
-        title: 'View Permit',
-        icon: '/static/icon-512.png'
-      },
-      {
-        action: 'close',
-        title: 'Close',
-        icon: '/static/icon-512.png'
-      }
-    ]
+    // iOS Safari doesn't support actions, so we'll keep it simple
+    tag: 'new-permits',
+    requireInteraction: false,
+    silent: false
   };
+
+  console.log('Showing notification with options:', options);
 
   event.waitUntil(
     self.registration.showNotification(data.title || 'New Permits Alert', options)
+    .then(() => {
+      console.log('Notification shown successfully');
+    })
+    .catch(error => {
+      console.error('Error showing notification:', error);
+    })
   );
 });
 
 // Notification click event
 self.addEventListener('notificationclick', event => {
+  console.log('Notification clicked:', event);
   event.notification.close();
 
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url || '/')
-    );
-  }
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url || '/')
+  );
 });
 
 // Background sync for periodic updates

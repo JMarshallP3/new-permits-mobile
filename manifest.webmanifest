@@ -7,6 +7,7 @@
   "background_color": "#f8fafc",
   "theme_color": "#667eea",
   "orientation": "portrait",
+  "scope": "/",
   "icons": [
     {
       "src": "/static/icon-512.png",
@@ -29,7 +30,6 @@
   ],
   "categories": ["business", "productivity"],
   "lang": "en-US",
-  "scope": "/",
   "prefer_related_applications": false,
   "color_scheme": "light"
 }
