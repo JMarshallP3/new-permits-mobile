@@ -902,9 +902,10 @@ def generate_html():
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <title>New Permits</title>
         <link rel="manifest" href="/static/manifest.webmanifest">
+        <link rel="stylesheet" href="/static/mobile-compact.css">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="New Permits">
@@ -1792,10 +1793,10 @@ def generate_html():
                                         <span class="permit-date">{permit.date_issued.strftime('%m/%d/%Y')}</span>
                                     </div>
                                     <div class="permit-info">
-                                        <h3>{permit.lease_name}</h3>
+                                        <h3 class="truncate-2">{permit.lease_name}</h3>
                                         <div class="permit-detail">
                                             <strong>Operator:</strong>
-                                            <span>{permit.operator}</span>
+                                            <span class="truncate-1">{permit.operator}</span>
                                         </div>
                                         <div class="permit-detail">
                                             <strong>Well #:</strong>
@@ -2823,6 +2824,11 @@ def api_vapid_public_key():
     """Get VAPID public key for push notifications"""
     # Always return the VAPID public key, even if pywebpush isn't available
     return jsonify({'publicKey': VAPID_PUBLIC_KEY})
+
+@app.route('/static/mobile-compact.css')
+def serve_mobile_css():
+    """Serve the mobile compact CSS"""
+    return send_from_directory('static', 'mobile-compact.css', mimetype='text/css')
 
 @app.route('/static/manifest.webmanifest')
 def serve_manifest():

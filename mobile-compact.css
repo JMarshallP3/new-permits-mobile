@@ -1,0 +1,147 @@
+/* Global baseline */
+html, body { 
+    -webkit-text-size-adjust: 100%; 
+}
+
+/* Phone compaction */
+@media (max-width: 430px) {
+  /* Typography scale: keep inputs >=16px to avoid iOS zoom */
+  body { 
+    font-size: 15px; 
+    line-height: 1.35; 
+  }
+  h1 { 
+    font-size: clamp(18px, 5vw, 22px); 
+    margin: 8px 0; 
+  }
+  h2 { 
+    font-size: clamp(16px, 4.2vw, 20px); 
+    margin: 6px 0; 
+  }
+  h3 { 
+    font-size: clamp(15px, 3.8vw, 18px); 
+    margin: 6px 0; 
+  }
+
+  /* Top controls stack: tighten gaps/padding */
+  .controls {
+    gap: 8px;
+    padding: 1rem;
+  }
+  .control-row { 
+    margin: 4px 0; 
+  }
+
+  /* Buttons: smaller text/padding but keep 44px target */
+  .btn, button, [role="button"] {
+    font-size: 14px;
+    padding: 8px 12px;
+    min-height: 44px;
+    line-height: 1.1;
+  }
+
+  /* Inputs/selects: keep font-size >= 16px (no zoom on iOS) */
+  input, select, textarea {
+    font-size: 16px;
+    padding: 8px 10px;
+    min-height: 44px;
+  }
+
+  /* Cards: reduce padding, radius, gaps */
+  .permit-card, [data-permit-id] {
+    padding: 10px 12px;
+    border-radius: 10px;
+    margin: 8px 0;
+  }
+  .permit-header {
+    gap: 6px;
+    margin-bottom: 0.75rem;
+  }
+
+  /* County sections: tighter header and spacing */
+  .county-header {
+    padding: 8px 4px;
+    margin-bottom: 6px;
+  }
+
+  /* Badges/chips smaller */
+  .permit-county {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  /* Truncate long text lines to keep height down */
+  .truncate-1 {
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+  }
+  .truncate-2 {
+    display: -webkit-box; 
+    -webkit-line-clamp: 2; 
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Reduce icon size */
+  svg, .icon { 
+    width: 18px; 
+    height: 18px; 
+  }
+
+  /* Avoid accidental horizontal scroll */
+  body { 
+    overflow-x: hidden; 
+  }
+
+  /* Header adjustments */
+  .header {
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+  }
+
+  /* Status section adjustments */
+  .status {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Modal adjustments */
+  .county-modal {
+    margin: 0.5rem;
+    padding: 1rem;
+    max-height: 90vh;
+  }
+
+  /* Grid adjustments */
+  .permits-grid {
+    gap: 1rem;
+  }
+
+  /* Theme toggle adjustments */
+  .theme-toggle {
+    top: 1rem;
+    right: 1rem;
+    padding: 0.5rem;
+  }
+}
+
+/* Ultra small devices */
+@media (max-width: 360px) {
+  body { 
+    font-size: 14px; 
+  }
+  .btn, button { 
+    padding: 8px 10px; 
+  }
+  .permit-card, [data-permit-id] { 
+    padding: 8px 10px; 
+  }
+  .controls {
+    padding: 0.75rem;
+  }
+  .header {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 0;
+  }
+}
