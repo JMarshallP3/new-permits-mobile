@@ -42,14 +42,25 @@ self.addEventListener('activate', event => {
 
 // Push notification event
 self.addEventListener('push', event => {
+  let data = {};
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { body: event.data.text() };
+    }
+  }
+  
   const options = {
-    body: event.data ? event.data.text() : 'New permit found in your selected county!',
-    icon: '/static/icon-512.png',
-    badge: '/static/apple-touch-icon.png',
+    body: data.body || 'New permit found in your selected county!',
+    icon: data.icon || '/static/icon-512.png',
+    badge: data.badge || '/static/apple-touch-icon.png',
     vibrate: [200, 100, 200],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      primaryKey: 1,
+      url: data.url || '/'
     },
     actions: [
       {
@@ -66,7 +77,7 @@ self.addEventListener('push', event => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('New Permits Alert', options)
+    self.registration.showNotification(data.title || 'New Permits Alert', options)
   );
 });
 
@@ -76,7 +87,7 @@ self.addEventListener('notificationclick', event => {
 
   if (event.action === 'explore') {
     event.waitUntil(
-      clients.openWindow('/')
+      clients.openWindow(event.notification.data.url || '/')
     );
   }
 });

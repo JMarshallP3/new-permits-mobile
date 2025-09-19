@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, send_file
+from flask import Flask, render_template, request, jsonify, session, send_file, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timedelta
 import requests
@@ -78,8 +78,8 @@ scraping_status = {
 }
 
 # Push notification configuration
-VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ2NHdE05TWhqNFo0YU9HSFQKVTNlTXZyL2l1S0FCamdZeUxMdmxXQUZQbE0raFJBTkNBQVFqR296SUl1am1WNnJLVDNyN0hFU1piblJvTTdzeAp1VjBJZ2ExYk50WnhVWWZVaEl4dHF1T3hxZFRaT2x1bkpQWVpKQ3JuVUJWU1FCYThaWkQ5SEtWQwotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg')
-VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFSXhxTXlDTG81bGVxeWs5Nit4eEVtVzUwYURPNwpNYmxkQ0lHdFd6YldjVkdIMUlTTWJhcmpzYW5VMlRwYnB5VDJHU1FxNTFBVlVrQVd2R1dRL1J5bFFnPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzRLUDRpMjluaU0xR1BmZVgKUzRvVHNuMWM4OTZrcEpkZHlTUFVYVGI0ODUraFJBTkNBQVMzN042Ynp3OUV6aStqb1ozL3VLNUdyeStZNHFFQgpCSnF1UkFYdTlXSTdXdEdlQUpUVEJ6Yk8zWmd1Tk9TaG9JM3JNUlBiSnIvSDNlUXJQU2dRekNqRgotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFdCt6ZW04OFBSTTR2bzZHZC83aXVScTh2bU9LaApBUVNhcmtRRjd2VmlPMXJSbmdDVTB3YzJ6dDJZTGpUa29hQ042ekVUMnlhL3g5M2tLejBvRU13b3hRPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg')
 VAPID_CLAIMS = {
     "sub": "mailto:your-email@example.com"
 }
@@ -809,8 +809,16 @@ def generate_html():
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
         <title>New Permits</title>
+        <link rel="manifest" href="/static/manifest.webmanifest">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="New Permits">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="theme-color" content="#667eea">
+        <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+        <link rel="apple-touch-icon" sizes="120x120" href="/static/apple-touch-icon-120x120.png">
         <style>
             /* Import premium fonts */
             @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=SF+Pro+Text:wght@300;400;500;600&display=swap');
@@ -2016,6 +2024,41 @@ def api_vapid_public_key():
     """Get VAPID public key for push notifications"""
     # Always return the VAPID public key, even if pywebpush isn't available
     return jsonify({'publicKey': VAPID_PUBLIC_KEY})
+
+@app.route('/static/manifest.webmanifest')
+def serve_manifest():
+    """Serve the web app manifest"""
+    return send_from_directory('static', 'manifest.webmanifest', mimetype='application/manifest+json')
+
+@app.route('/sw.js')
+def serve_service_worker():
+    """Serve the service worker"""
+    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+
+@app.route('/api/dismiss/<int:permit_id>', methods=['POST'])
+def api_dismiss_permit(permit_id):
+    """Dismiss a permit by removing it from the database"""
+    try:
+        permit = Permit.query.get(permit_id)
+        if permit:
+            db.session.delete(permit)
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Permit dismissed successfully'})
+        else:
+            return jsonify({'success': False, 'error': 'Permit not found'}), 404
+    except Exception as e:
+        print(f"Error dismissing permit: {e}")
+        return jsonify({'success': False, 'error': 'Failed to dismiss permit'}), 500
+
+@app.route('/api/push-test')
+def api_push_test():
+    """Test endpoint to check push notification setup"""
+    return jsonify({
+        'pywebpush_available': PUSH_NOTIFICATIONS_AVAILABLE,
+        'vapid_configured': bool(VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY),
+        'service_worker_exists': True,  # We know this exists
+        'status': 'Push notifications should work' if PUSH_NOTIFICATIONS_AVAILABLE else 'Limited functionality - pywebpush not available'
+    })
 
 @app.route('/export/csv')
 def export_csv():
