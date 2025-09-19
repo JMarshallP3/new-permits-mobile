@@ -1827,6 +1827,7 @@ def generate_html():
                 .header {{
                     margin-bottom: 1rem !important;
                     padding: 0.5rem 0 !important;
+                    margin-top: 3rem !important;
                 }}
 
                 /* Status section adjustments */
@@ -1915,6 +1916,7 @@ def generate_html():
                 .header {{
                     margin-bottom: 1rem !important;
                     padding: 0.5rem 0 !important;
+                    margin-top: 3rem !important;
                 }}
                 .container {{
                     padding: 0.75rem !important;
@@ -3261,36 +3263,14 @@ def serve_icon_512():
     """Serve the main app icon"""
     print("DEBUG: Serving icon-512.png")
     try:
+        # Try to serve from static directory first
         resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
         resp.headers['Cache-Control'] = 'no-cache'
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving icon-512.png: {e}")
-        return "Icon not found", 404
-
-@app.route('/static/apple-touch-icon.png')
-def serve_apple_touch_icon():
-    """Serve the Apple touch icon"""
-    print("DEBUG: Serving apple-touch-icon.png")
-    try:
-        resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
-    except Exception as e:
-        print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
-        return "Icon not found", 404
-
-@app.route('/static/apple-touch-icon-120x120.png')
-def serve_apple_touch_icon_120():
-    """Serve the Apple touch icon 120x120"""
-    print("DEBUG: Serving apple-touch-icon-120x120.png")
-    try:
-        resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
-    except Exception as e:
-        print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
-        return "Icon not found", 404
+        # Fallback: generate icon programmatically
+        return generate_icon(512)
 
 @app.route('/static/icon-192.png')
 def serve_icon_192():
@@ -3302,7 +3282,31 @@ def serve_icon_192():
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving icon-192.png: {e}")
-        return "Icon not found", 404
+        return generate_icon(192)
+
+@app.route('/static/apple-touch-icon.png')
+def serve_apple_touch_icon():
+    """Serve the Apple touch icon"""
+    print("DEBUG: Serving apple-touch-icon.png")
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
+        return generate_icon(180)
+
+@app.route('/static/apple-touch-icon-120x120.png')
+def serve_apple_touch_icon_120():
+    """Serve the Apple touch icon 120x120"""
+    print("DEBUG: Serving apple-touch-icon-120x120.png")
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
+        return generate_icon(120)
 
 @app.route('/static/favicon-32x32.png')
 def serve_favicon_32():
@@ -3314,7 +3318,7 @@ def serve_favicon_32():
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving favicon-32x32.png: {e}")
-        return "Icon not found", 404
+        return generate_icon(32)
 
 @app.route('/static/favicon-16x16.png')
 def serve_favicon_16():
@@ -3326,7 +3330,7 @@ def serve_favicon_16():
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving favicon-16x16.png: {e}")
-        return "Icon not found", 404
+        return generate_icon(16)
 
 @app.route('/favicon.ico')
 def favicon():
@@ -3338,7 +3342,59 @@ def favicon():
         return resp
     except Exception as e:
         print(f"DEBUG: Error serving favicon: {e}")
-        return "Favicon not found", 404
+        return generate_icon(32)
+
+def generate_icon(size):
+    """Generate a simple icon programmatically"""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Create a new image with a dark background
+        img = Image.new('RGBA', (size, size), (14, 21, 37, 255))  # Dark blue background
+        draw = ImageDraw.Draw(img)
+        
+        # Try to use a system font, fallback to default
+        try:
+            font_size = max(size // 3, 12)
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except:
+            try:
+                font = ImageFont.load_default()
+            except:
+                font = None
+        
+        # Draw 'PT' text in white
+        text = "PT"
+        if font:
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            # Center the text
+            x = (size - text_width) // 2
+            y = (size - text_height) // 2
+        else:
+            x = size // 4
+            y = size // 4
+        
+        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+        
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        # Return the image
+        resp = app.response_class(img_byte_arr, mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+        
+    except Exception as e:
+        print(f"DEBUG: Error generating icon: {e}")
+        # Return a simple 1x1 transparent pixel as fallback
+        return app.response_class(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82', mimetype='image/png')
 
 @app.route('/api/dismiss/<int:permit_id>', methods=['POST'])
 def api_dismiss_permit(permit_id):

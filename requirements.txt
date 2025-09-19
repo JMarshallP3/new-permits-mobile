@@ -9,3 +9,4 @@ http-ece>=1.1.0
 py-vapid>=1.9.1
 cryptography>=42.0.0
 gunicorn==21.2.0
+Pillow>=10.0.0
