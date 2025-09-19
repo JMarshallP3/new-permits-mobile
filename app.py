@@ -3263,130 +3263,50 @@ def debug_sw():
 def serve_icon_512():
     """Serve the main app icon"""
     print("DEBUG: Serving icon-512.png")
-    try:
-        # Try to serve from static directory first
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'icon-512.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving icon-512.png: {e}")
-        # Fallback: generate icon programmatically
-        return generate_icon(512)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(512)
 
 @app.route('/static/icon-192.png')
 def serve_icon_192():
     """Serve the 192x192 icon"""
     print("DEBUG: Serving icon-192.png")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'icon-192.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'icon-192.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving icon-192.png: {e}")
-        return generate_icon(192)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(192)
 
 @app.route('/static/apple-touch-icon.png')
 def serve_apple_touch_icon():
     """Serve the Apple touch icon"""
     print("DEBUG: Serving apple-touch-icon.png")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'apple-touch-icon.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
-        return generate_icon(180)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(180)
 
 @app.route('/static/apple-touch-icon-120x120.png')
 def serve_apple_touch_icon_120():
     """Serve the Apple touch icon 120x120"""
     print("DEBUG: Serving apple-touch-icon-120x120.png")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'apple-touch-icon-120x120.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
-        return generate_icon(120)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(120)
 
 @app.route('/static/favicon-32x32.png')
 def serve_favicon_32():
     """Serve the 32x32 favicon"""
     print("DEBUG: Serving favicon-32x32.png")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon-32x32.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'favicon-32x32.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving favicon-32x32.png: {e}")
-        return generate_icon(32)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(32)
 
 @app.route('/static/favicon-16x16.png')
 def serve_favicon_16():
     """Serve the 16x16 favicon"""
     print("DEBUG: Serving favicon-16x16.png")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon-16x16.png')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'favicon-16x16.png', mimetype='image/png')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving favicon-16x16.png: {e}")
-        return generate_icon(16)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(16)
 
 @app.route('/favicon.ico')
 def favicon():
     """Serve favicon"""
     print("DEBUG: Serving favicon.ico")
-    try:
-        import os
-        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon.ico')
-        if os.path.exists(static_path):
-            resp = send_from_directory('static', 'favicon.ico', mimetype='image/x-icon')
-            resp.headers['Cache-Control'] = 'no-cache'
-            return resp
-        else:
-            print(f"DEBUG: Static file not found: {static_path}")
-            raise FileNotFoundError("Static file not found")
-    except Exception as e:
-        print(f"DEBUG: Error serving favicon: {e}")
-        # Fallback: generate a simple favicon
-        return generate_icon(16)
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(16)
 
 def generate_icon(size):
     """Generate a simple icon programmatically"""
