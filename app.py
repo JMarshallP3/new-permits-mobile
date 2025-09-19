@@ -3283,6 +3283,28 @@ with app.app_context():
         import traceback
         traceback.print_exc()
 
+@app.route('/api/push/debug')
+def push_debug():
+    """Debug endpoint to check push notification dependencies and VAPID keys"""
+    import os
+    import importlib
+    
+    def check_module(module_name):
+        try:
+            importlib.import_module(module_name)
+            return True
+        except ImportError:
+            return False
+    
+    return jsonify({
+        'pywebpush_installed': check_module('pywebpush'),
+        'cryptography_installed': check_module('cryptography'),
+        'vapid_public_present': bool(os.getenv('VAPID_PUBLIC_KEY')),
+        'vapid_private_present': bool(os.getenv('VAPID_PRIVATE_KEY')),
+        'vapid_subject_present': bool(os.getenv('VAPID_SUBJECT')),
+        'push_notifications_available': PUSH_NOTIFICATIONS_AVAILABLE
+    })
+
 if __name__ == '__main__':
     print("🚀 Starting RRC Monitor Application...")
     print(f"📊 Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
