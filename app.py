@@ -1780,7 +1780,7 @@ def generate_html():
                         ''' for county in sorted(set(p.county for p in filtered_permits))])}
                     </div>
                     <div class="modal-actions">
-                        <button class="btn btn-primary" onclick="applyViewFilters()">Apply Filter</button>
+                        <button class="btn btn-primary" onclick="saveViewCounties()">Apply Filter</button>
                         <button class="btn btn-outline-secondary" onclick="closeViewCountiesSelector()">Cancel</button>
                     </div>
                 </div>
@@ -1951,17 +1951,21 @@ def generate_html():
             
             // Dismissal functionality
             function dismissPermit(permitId) {{
+                console.log('Dismissing permit:', permitId);
                 if (confirm('Are you sure you want to dismiss this permit?')) {{
                     toggleArrayValue('dismissedPermitSet', permitId.toString());
                     document.querySelector(`[data-permit-id="${{permitId}}"]`).style.display = 'none';
                     applyViewFilters();
+                    console.log('Permit dismissed, current dismissed permits:', getSet('dismissedPermitSet'));
                 }}
             }}
             
             function dismissCounty(county) {{
+                console.log('Dismissing county:', county);
                 if (confirm(`Are you sure you want to dismiss all permits in ${{county}} county?`)) {{
                     toggleArrayValue('dismissedCountySet', county);
                     document.querySelector(`[data-county="${{county}}"]`).style.display = 'none';
+                    console.log('County dismissed, current dismissed counties:', getSet('dismissedCountySet'));
                 }}
             }}
             
@@ -1978,6 +1982,9 @@ def generate_html():
             function loadHiddenItems() {{
                 const dismissedCounties = getSet('dismissedCountySet');
                 const dismissedPermits = getSet('dismissedPermitSet');
+                
+                console.log('Dismissed counties:', dismissedCounties);
+                console.log('Dismissed permits:', dismissedPermits);
                 
                 // Load dismissed counties
                 const countiesList = document.getElementById('dismissed-counties-list');
@@ -2144,25 +2151,6 @@ def generate_html():
                 window.location.href = url;
             }}
             
-            function dismissPermit(permitId) {{
-                if (confirm('Are you sure you want to dismiss this permit?')) {{
-                    fetch(`/api/dismiss/${{permitId}}`, {{
-                        method: 'POST'
-                    }})
-                    .then(response => response.json())
-                    .then(data => {{
-                        if (data.success) {{
-                            location.reload();
-                        }} else {{
-                            alert('Error dismissing permit');
-                        }}
-                    }})
-                    .catch(error => {{
-                        console.error('Error:', error);
-                        alert('Error dismissing permit');
-                    }});
-                }}
-            }}
             
             // Auto-refresh status every 10 seconds
             setInterval(() => {{
