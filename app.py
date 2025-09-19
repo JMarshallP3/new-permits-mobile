@@ -69,6 +69,31 @@ class UserSettings(db.Model):
     last_notification_check = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# Device-scoped subscription model
+class DeviceSubscription(db.Model):
+    __tablename__ = 'device_subscriptions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    device_id = db.Column(db.String(100), nullable=False, index=True)
+    endpoint = db.Column(db.String(500), nullable=False, unique=True)
+    p256dh = db.Column(db.String(200), nullable=False)
+    auth = db.Column(db.String(200), nullable=False)
+    prefs_json = db.Column(db.Text)  # JSON string with user preferences
+    user_agent = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_error = db.Column(db.String(500))  # Last push error message
+    error_count = db.Column(db.Integer, default=0)  # Consecutive error count
+
+# Seen permits table for deduplication
+class SeenPermit(db.Model):
+    __tablename__ = 'seen_permits'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    permit_no = db.Column(db.String(100), nullable=False, unique=True)  # API number or unique identifier
+    first_seen_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime)  # TTL for cleanup
+
 # Global scraping status
 scraping_status = {
     'is_running': False,
@@ -78,11 +103,17 @@ scraping_status = {
 }
 
 # Push notification configuration
-VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', 'LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZzRLUDRpMjluaU0xR1BmZVgKUzRvVHNuMWM4OTZrcEpkZHlTUFVYVGI0ODUraFJBTkNBQVMzN042Ynp3OUV6aStqb1ozL3VLNUdyeStZNHFFQgpCSnF1UkFYdTlXSTdXdEdlQUpUVEJ6Yk8zWmd1Tk9TaG9JM3JNUlBiSnIvSDNlUXJQU2dRekNqRgotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg')
-VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', 'LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFdCt6ZW04OFBSTTR2bzZHZC83aXVScTh2bU9LaApBUVNhcmtRRjd2VmlPMXJSbmdDVTB3YzJ6dDJZTGpUa29hQ042ekVUMnlhL3g5M2tLejBvRU13b3hRPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY')
 VAPID_CLAIMS = {
-    "sub": "mailto:your-email@example.com"
+    "sub": os.getenv('VAPID_SUBJECT', 'mailto:admin@rrc-monitor.com')
 }
+
+# Check if VAPID keys are properly configured
+if not VAPID_PRIVATE_KEY or not VAPID_PUBLIC_KEY:
+    print("Warning: VAPID keys not configured. Push notifications will be disabled.")
+    print("Set VAPID_PRIVATE_KEY and VAPID_PUBLIC_KEY environment variables.")
+    PUSH_NOTIFICATIONS_AVAILABLE = False
 
 def send_push_notification(subscription, title, body, url=None):
     """Send push notification to a subscription"""
@@ -114,39 +145,71 @@ def send_push_notification(subscription, title, body, url=None):
         return False
 
 def send_notifications_for_new_permits(new_permits):
-    """Send push notifications for new permits to subscribed users"""
+    """Send push notifications for new permits to subscribed users with device-scoped preferences"""
     if not new_permits:
         return
     
+    if not PUSH_NOTIFICATIONS_AVAILABLE:
+        print("Push notifications not available - skipping notifications")
+        return
+    
     with app.app_context():
-        # Get all active subscriptions
-        subscriptions = Subscription.query.all()
+        # Get all active device subscriptions
+        subscriptions = DeviceSubscription.query.all()
         
         if not subscriptions:
-            print("No active subscriptions found")
+            print("No active device subscriptions found")
             return
         
-        # Get user settings for filtering by counties
-        user_settings = {}
-        for setting in UserSettings.query.all():
-            try:
-                counties = json.loads(setting.selected_counties) if setting.selected_counties else []
-                user_settings[setting.session_id] = counties
-            except:
-                user_settings[setting.session_id] = []
-        
         notifications_sent = 0
+        pruned_endpoints = 0
         
         for permit in new_permits:
+            # Check if we've already sent notification for this permit (deduplication)
+            permit_key = f"{permit.api_number}_{permit.lease_name}_{permit.well_number}"
+            
+            # Check if permit was already seen (with 24h TTL)
+            seen_permit = SeenPermit.query.filter_by(permit_no=permit_key).first()
+            if seen_permit and seen_permit.expires_at > datetime.utcnow():
+                print(f"Skipping duplicate notification for permit {permit_key}")
+                continue
+            
+            # Record this permit as seen (24h TTL)
+            if not seen_permit:
+                seen_permit = SeenPermit(
+                    permit_no=permit_key,
+                    expires_at=datetime.utcnow() + timedelta(hours=24)
+                )
+                db.session.add(seen_permit)
+            else:
+                seen_permit.expires_at = datetime.utcnow() + timedelta(hours=24)
+            
             permit_county = permit.county
             
-            # Send notification only to users who have this county selected
+            # Send notification to devices that want this county
             for subscription in subscriptions:
-                # Get the user's selected counties
-                user_counties = user_settings.get(subscription.session_id, [])
-                
-                # Only send notification if this user has the permit's county selected
-                if permit_county in user_counties:
+                try:
+                    # Parse user preferences
+                    prefs = json.loads(subscription.prefs_json) if subscription.prefs_json else {}
+                    
+                    # Get preference sets
+                    monitor_counties = set(prefs.get('monitorCounties', []))
+                    dismissed_counties = set(prefs.get('dismissedCountySet', []))
+                    dismissed_permits = set(prefs.get('dismissedPermitSet', []))
+                    
+                    # Skip if county is dismissed
+                    if permit_county in dismissed_counties:
+                        continue
+                    
+                    # Skip if permit is dismissed
+                    if str(permit.id) in dismissed_permits:
+                        continue
+                    
+                    # Skip if user has specific counties selected and this isn't one of them
+                    if monitor_counties and permit_county not in monitor_counties:
+                        continue
+                    
+                    # Send notification
                     subscription_data = {
                         "endpoint": subscription.endpoint,
                         "keys": {
@@ -159,13 +222,41 @@ def send_notifications_for_new_permits(new_permits):
                     body = f"{permit.operator} - {permit.lease_name} #{permit.well_number}"
                     url = permit.rrc_link
                     
-                    if send_push_notification(subscription_data, title, body, url):
+                    success = send_push_notification(subscription_data, title, body, url)
+                    
+                    if success:
                         notifications_sent += 1
-                        print(f"Sent notification to user {subscription.session_id} for {permit_county} permit")
+                        # Reset error count on successful send
+                        subscription.error_count = 0
+                        subscription.last_error = None
+                        print(f"Sent notification to device {subscription.device_id} for {permit_county} permit")
+                    else:
+                        # Increment error count
+                        subscription.error_count += 1
+                        subscription.last_error = "Failed to send notification"
+                        
+                except Exception as e:
+                    print(f"Error processing subscription for device {subscription.device_id}: {e}")
+                    subscription.error_count += 1
+                    subscription.last_error = str(e)
+                    continue
+            
+            # Prune dead endpoints (404/410 errors)
+            dead_subscriptions = DeviceSubscription.query.filter(
+                DeviceSubscription.error_count >= 3
+            ).all()
+            
+            for dead_sub in dead_subscriptions:
+                print(f"Pruning dead subscription for device {dead_sub.device_id}")
+                db.session.delete(dead_sub)
+                pruned_endpoints += 1
+        
+        # Commit all changes
+        db.session.commit()
         
         print(f"Sent {notifications_sent} push notifications for {len(new_permits)} new permits")
-        # Note: Client-side dismissals (localStorage) are not checked here
-        # For full dismissal support, consider adding server-side dismissal tracking
+        if pruned_endpoints > 0:
+            print(f"Pruned {pruned_endpoints} dead endpoints")
 
 def get_or_create_user_settings(session_id):
     """Get or create user settings for a session"""
@@ -1634,6 +1725,9 @@ def generate_html():
                     <button class="btn btn-info" onclick="toggleNotifications()" id="notificationBtn">
                         🔔 Enable Notifications
                     </button>
+                    <button class="btn btn-outline-secondary" onclick="sendTestNotification()" id="testNotificationBtn" style="display: none;">
+                        🧪 Test Notification
+                    </button>
                 </div>
             </div>
             
@@ -1957,6 +2051,9 @@ def generate_html():
                     document.querySelector(`[data-permit-id="${{permitId}}"]`).style.display = 'none';
                     applyViewFilters();
                     console.log('Permit dismissed, current dismissed permits:', getSet('dismissedPermitSet'));
+                    
+                    // Sync preferences with server
+                    updatePreferencesOnServer();
                 }}
             }}
             
@@ -1966,6 +2063,9 @@ def generate_html():
                     toggleArrayValue('dismissedCountySet', county);
                     document.querySelector(`[data-county="${{county}}"]`).style.display = 'none';
                     console.log('County dismissed, current dismissed counties:', getSet('dismissedCountySet'));
+                    
+                    // Sync preferences with server
+                    updatePreferencesOnServer();
                 }}
             }}
             
@@ -2126,23 +2226,11 @@ def generate_html():
                 saveSet('monitorCounties', new Set(selectedCounties));
                 updateMonitoringCount();
                 
-                // Also save to server for backward compatibility
-                fetch('/api/selected-counties', {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json',
-                    }},
-                    body: JSON.stringify({{counties: selectedCounties}})
-                }})
-                .then(response => response.json())
-                .then(data => {{
-                    alert('Monitoring counties saved!');
-                    closeCountySelector();
-                }})
-                .catch(error => {{
-                    console.error('Error:', error);
-                    alert('Error saving county selection');
-                }});
+                // Sync preferences with server
+                updatePreferencesOnServer();
+                
+                alert('Monitoring counties saved!');
+                closeCountySelector();
             }}
             
             function exportCSV() {{
@@ -2212,6 +2300,53 @@ def generate_html():
                 document.getElementById('monitoring-count-text').textContent = countText;
             }}
             
+            // Device management
+            function getOrCreateDeviceId() {{
+                let deviceId = localStorage.getItem('deviceId');
+                if (!deviceId) {{
+                    deviceId = 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                    localStorage.setItem('deviceId', deviceId);
+                }}
+                return deviceId;
+            }}
+            
+            // iOS detection
+            function isIOS() {{
+                return /iPad|iPhone|iPod/.test(navigator.userAgent);
+            }}
+            
+            function isStandalone() {{
+                return window.navigator.standalone === true;
+            }}
+            
+            function showIOSBanner() {{
+                if (isIOS() && !isStandalone()) {{
+                    const banner = document.createElement('div');
+                    banner.id = 'ios-banner';
+                    banner.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 12px;
+                        text-align: center;
+                        font-size: 14px;
+                        z-index: 10000;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    `;
+                    banner.innerHTML = `
+                        📱 Add to Home Screen to receive notifications
+                        <button onclick="this.parentElement.remove()" style="margin-left: 10px; background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px;">✕</button>
+                    `;
+                    document.body.appendChild(banner);
+                    
+                    // Adjust body padding to account for banner
+                    document.body.style.paddingTop = '60px';
+                }}
+            }}
+            
             // Push notification functions
             let isSubscribed = false;
             let swRegistration = null;
@@ -2233,12 +2368,47 @@ def generate_html():
             
             function updateSubscriptionOnServer(subscription) {{
                 console.log('Sending subscription to server:', subscription);
-                return fetch('/api/subscribe', {{
+                
+                const deviceId = getOrCreateDeviceId();
+                const preferences = {{
+                    monitorCounties: Array.from(getSet('monitorCounties')),
+                    dismissedCountySet: Array.from(getSet('dismissedCountySet')),
+                    dismissedPermitSet: Array.from(getSet('dismissedPermitSet')),
+                    viewFilterCounties: Array.from(getSet('viewFilterCounties'))
+                }};
+                
+                return fetch('/api/push/subscribe', {{
                     method: 'POST',
                     headers: {{
                         'Content-Type': 'application/json',
                     }},
-                    body: JSON.stringify(subscription)
+                    body: JSON.stringify({{
+                        deviceId: deviceId,
+                        endpoint: subscription.endpoint,
+                        keys: subscription.keys,
+                        preferences: preferences
+                    }})
+                }});
+            }}
+            
+            function updatePreferencesOnServer() {{
+                const deviceId = getOrCreateDeviceId();
+                const preferences = {{
+                    monitorCounties: Array.from(getSet('monitorCounties')),
+                    dismissedCountySet: Array.from(getSet('dismissedCountySet')),
+                    dismissedPermitSet: Array.from(getSet('dismissedPermitSet')),
+                    viewFilterCounties: Array.from(getSet('viewFilterCounties'))
+                }};
+                
+                return fetch('/api/push/prefs', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json',
+                    }},
+                    body: JSON.stringify({{
+                        deviceId: deviceId,
+                        preferences: preferences
+                    }})
                 }});
             }}
             
@@ -2250,7 +2420,18 @@ def generate_html():
                         }}
                     }})
                     .then(function() {{
-                        updateSubscriptionOnServer(null);
+                        // Send unsubscribe request to server
+                        return fetch('/api/push/unsubscribe', {{
+                            method: 'POST',
+                            headers: {{
+                                'Content-Type': 'application/json',
+                            }},
+                            body: JSON.stringify({{
+                                endpoint: subscription.endpoint
+                            }})
+                        }});
+                    }})
+                    .then(function() {{
                         console.log('User is unsubscribed.');
                         isSubscribed = false;
                         updateBtn();
@@ -2290,12 +2471,22 @@ def generate_html():
             
             function updateBtn() {{
                 const btn = document.getElementById('notificationBtn');
+                const testBtn = document.getElementById('testNotificationBtn');
+                
                 if (isSubscribed) {{
                     btn.textContent = '🔕 Disable Notifications';
                     btn.onclick = unsubscribeUser;
+                    // Show test button in debug mode
+                    if (testBtn) {{
+                        testBtn.style.display = 'inline-flex';
+                    }}
                 }} else {{
                     btn.textContent = '🔔 Enable Notifications';
                     btn.onclick = subscribeUser;
+                    // Hide test button when not subscribed
+                    if (testBtn) {{
+                        testBtn.style.display = 'none';
+                    }}
                 }}
             }}
             
@@ -2307,7 +2498,34 @@ def generate_html():
                 }}
             }}
             
+            function sendTestNotification() {{
+                const deviceId = getOrCreateDeviceId();
+                
+                fetch('/api/push/test', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json',
+                    }},
+                    body: JSON.stringify({{ deviceId: deviceId }})
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    if (data.success) {{
+                        alert('Test notification sent!');
+                    }} else {{
+                        alert('Failed to send test notification: ' + data.error);
+                    }}
+                }})
+                .catch(error => {{
+                    console.error('Error sending test notification:', error);
+                    alert('Error sending test notification');
+                }});
+            }}
+            
             function initializePushNotifications() {{
+                // Show iOS banner if needed
+                showIOSBanner();
+                
                 // Always show the notification button initially
                 const btn = document.getElementById('notificationBtn');
                 if (btn) {{
@@ -2343,6 +2561,8 @@ def generate_html():
                             
                             if (isSubscribed) {{
                                 console.log('User IS subscribed.');
+                                // Update preferences on server when already subscribed
+                                updatePreferencesOnServer();
                             }} else {{
                                 console.log('User is NOT subscribed.');
                             }}
@@ -2432,60 +2652,155 @@ def api_selected_counties():
                 pass
         return jsonify(session.get('selected_counties', []))
 
-@app.route('/api/subscribe', methods=['POST'])
-def api_subscribe():
-    """Subscribe to push notifications"""
+@app.route('/api/push/subscribe', methods=['POST'])
+def api_push_subscribe():
+    """Subscribe to push notifications with device-scoped preferences"""
     data = request.get_json()
     
     if not data or not data.get('endpoint'):
         return jsonify({'error': 'Missing subscription data'}), 400
     
+    if not data.get('deviceId'):
+        return jsonify({'error': 'Missing deviceId'}), 400
+    
     try:
-        # Get or create session ID for this user
-        session_id = session.get('session_id')
-        if not session_id:
-            import uuid
-            session_id = str(uuid.uuid4())
-            session['session_id'] = session_id
+        device_id = data['deviceId']
+        endpoint = data['endpoint']
+        prefs_json = json.dumps(data.get('preferences', {}))
         
-        if not PUSH_NOTIFICATIONS_AVAILABLE:
-            print("Push notifications not available, but storing subscription anyway")
-            # Store subscription even if pywebpush isn't available
-            subscription = Subscription(
-                endpoint=data['endpoint'],
+        # Upsert subscription by endpoint
+        existing = DeviceSubscription.query.filter_by(endpoint=endpoint).first()
+        
+        if existing:
+            # Update existing subscription
+            existing.device_id = device_id
+            existing.p256dh = data.get('keys', {}).get('p256dh', '')
+            existing.auth = data.get('keys', {}).get('auth', '')
+            existing.prefs_json = prefs_json
+            existing.user_agent = request.headers.get('User-Agent', '')
+            existing.updated_at = datetime.utcnow()
+            existing.error_count = 0  # Reset error count on successful subscription
+            existing.last_error = None
+        else:
+            # Create new subscription
+            subscription = DeviceSubscription(
+                device_id=device_id,
+                endpoint=endpoint,
                 p256dh=data.get('keys', {}).get('p256dh', ''),
                 auth=data.get('keys', {}).get('auth', ''),
-                user_agent=request.headers.get('User-Agent', ''),
-                session_id=session_id
+                prefs_json=prefs_json,
+                user_agent=request.headers.get('User-Agent', '')
             )
-            
-            # Remove existing subscription with same endpoint
-            Subscription.query.filter_by(endpoint=data['endpoint']).delete()
-            
             db.session.add(subscription)
-            db.session.commit()
-            
-            return jsonify({'success': True, 'message': 'Subscribed to notifications (limited functionality)'})
         
-        # Store subscription
-        subscription = Subscription(
-            endpoint=data['endpoint'],
-            p256dh=data.get('keys', {}).get('p256dh', ''),
-            auth=data.get('keys', {}).get('auth', ''),
-            user_agent=request.headers.get('User-Agent', ''),
-            session_id=session_id
-        )
-        
-        # Remove existing subscription with same endpoint
-        Subscription.query.filter_by(endpoint=data['endpoint']).delete()
-        
-        db.session.add(subscription)
         db.session.commit()
         
+        print(f"Device subscription {'updated' if existing else 'created'} for device {device_id}")
         return jsonify({'success': True, 'message': 'Subscribed to notifications'})
+        
     except Exception as e:
-        print(f"Error subscribing: {e}")
+        print(f"Error subscribing device: {e}")
         return jsonify({'error': 'Failed to subscribe'}), 500
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+def api_push_unsubscribe():
+    """Unsubscribe from push notifications"""
+    data = request.get_json()
+    
+    if not data or not data.get('endpoint'):
+        return jsonify({'error': 'Missing endpoint'}), 400
+    
+    try:
+        endpoint = data['endpoint']
+        subscription = DeviceSubscription.query.filter_by(endpoint=endpoint).first()
+        
+        if subscription:
+            db.session.delete(subscription)
+            db.session.commit()
+            print(f"Device unsubscribed: {subscription.device_id}")
+            return jsonify({'success': True, 'message': 'Unsubscribed from notifications'})
+        else:
+            return jsonify({'success': True, 'message': 'Subscription not found'})
+            
+    except Exception as e:
+        print(f"Error unsubscribing: {e}")
+        return jsonify({'error': 'Failed to unsubscribe'}), 500
+
+@app.route('/api/push/prefs', methods=['POST'])
+def api_push_prefs():
+    """Update preferences for a device"""
+    data = request.get_json()
+    
+    if not data or not data.get('deviceId'):
+        return jsonify({'error': 'Missing deviceId'}), 400
+    
+    try:
+        device_id = data['deviceId']
+        prefs_json = json.dumps(data.get('preferences', {}))
+        
+        subscription = DeviceSubscription.query.filter_by(device_id=device_id).first()
+        
+        if subscription:
+            subscription.prefs_json = prefs_json
+            subscription.updated_at = datetime.utcnow()
+            db.session.commit()
+            print(f"Updated preferences for device {device_id}")
+            return jsonify({'success': True, 'message': 'Preferences updated'})
+        else:
+            return jsonify({'error': 'Device not found'}), 404
+            
+    except Exception as e:
+        print(f"Error updating preferences: {e}")
+        return jsonify({'error': 'Failed to update preferences'}), 500
+
+@app.route('/api/push/test', methods=['POST'])
+def api_push_test():
+    """Send a test notification (dev only)"""
+    # Only allow in development
+    if not app.debug:
+        return jsonify({'error': 'Test notifications only available in debug mode'}), 403
+    
+    data = request.get_json()
+    device_id = data.get('deviceId')
+    
+    if not device_id:
+        return jsonify({'error': 'Missing deviceId'}), 400
+    
+    try:
+        subscription = DeviceSubscription.query.filter_by(device_id=device_id).first()
+        
+        if not subscription:
+            return jsonify({'error': 'Device not found'}), 404
+        
+        subscription_data = {
+            "endpoint": subscription.endpoint,
+            "keys": {
+                "p256dh": subscription.p256dh,
+                "auth": subscription.auth
+            }
+        }
+        
+        success = send_push_notification(
+            subscription_data,
+            "Test Notification",
+            "This is a test notification from RRC Monitor",
+            "/"
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Test notification sent'})
+        else:
+            return jsonify({'error': 'Failed to send test notification'}), 500
+            
+    except Exception as e:
+        print(f"Error sending test notification: {e}")
+        return jsonify({'error': 'Failed to send test notification'}), 500
+
+# Legacy endpoint for backward compatibility
+@app.route('/api/subscribe', methods=['POST'])
+def api_subscribe():
+    """Legacy subscribe endpoint - redirects to new device-scoped system"""
+    return jsonify({'error': 'Please use /api/push/subscribe with deviceId'}), 400
 
 @app.route('/api/unsubscribe', methods=['POST'])
 def api_unsubscribe():
