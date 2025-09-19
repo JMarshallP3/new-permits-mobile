@@ -3265,9 +3265,15 @@ def serve_icon_512():
     print("DEBUG: Serving icon-512.png")
     try:
         # Try to serve from static directory first
-        resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'icon-512.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving icon-512.png: {e}")
         # Fallback: generate icon programmatically
@@ -3278,9 +3284,15 @@ def serve_icon_192():
     """Serve the 192x192 icon"""
     print("DEBUG: Serving icon-192.png")
     try:
-        resp = send_from_directory('static', 'icon-192.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'icon-192.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'icon-192.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving icon-192.png: {e}")
         return generate_icon(192)
@@ -3290,9 +3302,15 @@ def serve_apple_touch_icon():
     """Serve the Apple touch icon"""
     print("DEBUG: Serving apple-touch-icon.png")
     try:
-        resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'apple-touch-icon.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
         return generate_icon(180)
@@ -3302,9 +3320,15 @@ def serve_apple_touch_icon_120():
     """Serve the Apple touch icon 120x120"""
     print("DEBUG: Serving apple-touch-icon-120x120.png")
     try:
-        resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'apple-touch-icon-120x120.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
         return generate_icon(120)
@@ -3314,9 +3338,15 @@ def serve_favicon_32():
     """Serve the 32x32 favicon"""
     print("DEBUG: Serving favicon-32x32.png")
     try:
-        resp = send_from_directory('static', 'favicon-32x32.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon-32x32.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'favicon-32x32.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving favicon-32x32.png: {e}")
         return generate_icon(32)
@@ -3326,9 +3356,15 @@ def serve_favicon_16():
     """Serve the 16x16 favicon"""
     print("DEBUG: Serving favicon-16x16.png")
     try:
-        resp = send_from_directory('static', 'favicon-16x16.png', mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon-16x16.png')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'favicon-16x16.png', mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving favicon-16x16.png: {e}")
         return generate_icon(16)
@@ -3338,62 +3374,77 @@ def favicon():
     """Serve favicon"""
     print("DEBUG: Serving favicon.ico")
     try:
-        resp = send_from_directory('static', 'favicon.ico', mimetype='image/x-icon')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+        import os
+        static_path = os.path.join(os.path.dirname(__file__), 'static', 'favicon.ico')
+        if os.path.exists(static_path):
+            resp = send_from_directory('static', 'favicon.ico', mimetype='image/x-icon')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+        else:
+            print(f"DEBUG: Static file not found: {static_path}")
+            raise FileNotFoundError("Static file not found")
     except Exception as e:
         print(f"DEBUG: Error serving favicon: {e}")
-        return "Favicon not found", 404
+        # Fallback: generate a simple favicon
+        return generate_icon(16)
 
 def generate_icon(size):
     """Generate a simple icon programmatically"""
     try:
-        from PIL import Image, ImageDraw, ImageFont
-        import io
-        
-        # Create a new image with a dark background
-        img = Image.new('RGBA', (size, size), (14, 21, 37, 255))  # Dark blue background
-        draw = ImageDraw.Draw(img)
-        
-        # Try to use a system font, fallback to default
+        # Try to import PIL with proper error handling
+        # Note: PIL import is wrapped in try/except to handle cases where Pillow is not installed
         try:
-            font_size = max(size // 3, 12)
-            font = ImageFont.truetype("arial.ttf", font_size)
-        except:
-            try:
-                font = ImageFont.load_default()
-            except:
-                font = None
-        
-        # Draw 'PT' text in white
-        text = "PT"
-        if font:
-            # Get text bounding box
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            from PIL import Image, ImageDraw, ImageFont  # type: ignore
+            import io
             
-            # Center the text
-            x = (size - text_width) // 2
-            y = (size - text_height) // 2
-        else:
-            x = size // 4
-            y = size // 4
-        
-        draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
-        
-        # Convert to bytes
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='PNG')
-        img_byte_arr = img_byte_arr.getvalue()
-        
-        # Return the image
-        resp = app.response_class(img_byte_arr, mimetype='image/png')
-        resp.headers['Cache-Control'] = 'no-cache'
-        return resp
+            # Create a new image with a dark background
+            img = Image.new('RGBA', (size, size), (14, 21, 37, 255))  # Dark blue background
+            draw = ImageDraw.Draw(img)
+            
+            # Try to use a system font, fallback to default
+            try:
+                font_size = max(size // 3, 12)
+                font = ImageFont.truetype("arial.ttf", font_size)
+            except:
+                try:
+                    font = ImageFont.load_default()
+                except:
+                    font = None
+            
+            # Draw 'PT' text in white
+            text = "PT"
+            if font:
+                # Get text bounding box
+                bbox = draw.textbbox((0, 0), text, font=font)
+                text_width = bbox[2] - bbox[0]
+                text_height = bbox[3] - bbox[1]
+                
+                # Center the text
+                x = (size - text_width) // 2
+                y = (size - text_height) // 2
+            else:
+                x = size // 4
+                y = size // 4
+            
+            draw.text((x, y), text, fill=(255, 255, 255, 255), font=font)
+            
+            # Convert to bytes
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            # Return the image
+            resp = app.response_class(img_byte_arr, mimetype='image/png')
+            resp.headers['Cache-Control'] = 'no-cache'
+            return resp
+            
+        except ImportError as pil_error:
+            print(f"DEBUG: PIL not available: {pil_error}")
+            # Fallback to base64 icon generation
+            return generate_base64_icon(size)
         
     except Exception as e:
-        print(f"DEBUG: Error generating icon with PIL: {e}")
+        print(f"DEBUG: Error generating icon: {e}")
         # Fallback: Return a simple base64 PNG icon
         return generate_base64_icon(size)
 
