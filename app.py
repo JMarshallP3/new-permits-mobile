@@ -904,7 +904,7 @@ def generate_html():
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <title>New Permits</title>
-        <link rel="manifest" href="/static/manifest.webmanifest">
+        <link rel="manifest" href="/manifest.webmanifest">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="New Permits">
@@ -2611,39 +2611,71 @@ def generate_html():
                     }});
             }}
             
-            function subscribeUser() {{
+            async function subscribeUser() {{
                 console.log('Attempting to subscribe user...');
                 
-                // Fetch the VAPID public key from the server
-                return fetch('/api/vapid-public-key')
-                    .then(response => response.json())
-                    .then(data => {{
-                        console.log('Received public key from server');
-                        const applicationServerKey = urlBase64ToUint8Array(data.publicKey);
-                        return swRegistration.pushManager.subscribe({{
-                            userVisibleOnly: true,
-                            applicationServerKey: applicationServerKey
-                        }});
-                    }})
-                    .then(function(subscription) {{
-                        console.log('User is subscribed:', subscription);
-                        return updateSubscriptionOnServer(subscription);
-                    }})
-                    .then(function(response) {{
-                        console.log('Server response:', response);
-                        if (response.ok) {{
-                            isSubscribed = true;
-                            updateBtn();
-                            console.log('Successfully subscribed!');
-                        }} else {{
-                            console.error('Server subscription failed:', response);
-                            throw new Error('Server subscription failed');
-                        }}
-                    }})
-                    .catch(function(err) {{
-                        console.log('Failed to subscribe the user:', err);
-                        alert('Failed to enable notifications. Please try again.');
+                try {{
+                    // Check if service worker and push are supported
+                    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {{
+                        alert('Push notifications not supported in this browser');
+                        return;
+                    }}
+                    
+                    // 1) Register service worker at root path
+                    let reg;
+                    try {{
+                        reg = await navigator.serviceWorker.register('/sw.js', {{ scope: '/' }});
+                        await navigator.serviceWorker.ready; // ensure active
+                        console.log('Service worker registered and ready');
+                    }} catch (e) {{
+                        console.error('SW register failed', e);
+                        alert('Could not register service worker.');
+                        return;
+                    }}
+                    
+                    // 2) Ask permission
+                    const perm = await Notification.requestPermission();
+                    if (perm !== 'granted') {{
+                        alert('Notifications not allowed');
+                        return;
+                    }}
+                    
+                    // 3) Get public key
+                    const response = await fetch('/api/vapid-public-key');
+                    const data = await response.json();
+                    if (!data.publicKey) {{
+                        alert('Public key missing on server');
+                        return;
+                    }}
+                    console.log('Received public key from server');
+                    
+                    // 4) Subscribe using the ready service worker
+                    const ready = await navigator.serviceWorker.ready;
+                    const subscription = await ready.pushManager.subscribe({{
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(data.publicKey)
                     }});
+                    
+                    console.log('User is subscribed:', subscription);
+                    
+                    // 5) Send subscription to server
+                    const serverResponse = await updateSubscriptionOnServer(subscription);
+                    console.log('Server response:', serverResponse);
+                    
+                    if (serverResponse.ok) {{
+                        isSubscribed = true;
+                        updateBtn();
+                        console.log('Successfully subscribed!');
+                        alert('Notifications enabled on this device.');
+                    }} else {{
+                        console.error('Server subscription failed:', serverResponse);
+                        throw new Error('Server subscription failed');
+                    }}
+                    
+                }} catch (err) {{
+                    console.log('Failed to subscribe the user:', err);
+                    alert('Failed to enable notifications. Please try again.');
+                }}
             }}
             
             function updateBtn() {{
@@ -2667,11 +2699,11 @@ def generate_html():
                 }}
             }}
             
-            function toggleNotifications() {{
+            async function toggleNotifications() {{
                 if (isSubscribed) {{
                     unsubscribeUser();
                 }} else {{
-                    subscribeUser();
+                    await subscribeUser();
                 }}
             }}
             
@@ -3012,9 +3044,18 @@ def serve_manifest():
     return send_from_directory('static', 'manifest.webmanifest', mimetype='application/manifest+json')
 
 @app.route('/sw.js')
-def serve_service_worker():
-    """Serve the service worker"""
-    return send_from_directory('static', 'sw.js', mimetype='application/javascript')
+def service_worker():
+    """Serve the service worker at root with no cache"""
+    resp = send_from_directory(app.static_folder, 'sw.js', mimetype='application/javascript')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+@app.route('/manifest.webmanifest')
+def manifest():
+    """Serve the manifest at root with no cache"""
+    resp = send_from_directory(app.static_folder, 'manifest.webmanifest', mimetype='application/manifest+json')
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
 
 @app.route('/static/icon-512.png')
 def serve_icon_512():
