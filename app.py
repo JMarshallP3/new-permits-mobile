@@ -1962,11 +1962,8 @@ def generate_html():
                 
                 <!-- 3) Update Permits -->
                 <div class="control-row">
-                    <button class="btn btn-success" onclick="startScraping()" id="updateBtn">
+                    <button class="btn btn-success" onclick="startScraping()">
                         🔄 Update Permits
-                    </button>
-                    <button class="btn btn-warning" onclick="forceScraping()" id="forceUpdateBtn" style="display: none;">
-                        ⚡ Force Update (Outside Hours)
                     </button>
                 </div>
                 
@@ -2048,15 +2045,9 @@ def generate_html():
                     </span>
                 </div>
                 <div class="status-item">
-                    <span class="status-label">Business Hours:</span>
-                    <span class="status-value" id="business-hours-status">
-                        <span id="business-hours-text">Loading...</span>
-                    </span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Schedule:</span>
+                    <span class="status-label">Manage Hidden:</span>
                     <span class="status-value">
-                        8 AM - 5 PM CST, Monday - Friday
+                        <a href="#" onclick="openManageHidden()" style="color: #667eea; text-decoration: none;">Restore dismissed items</a>
                     </span>
                 </div>
             </div>
@@ -2079,7 +2070,7 @@ def generate_html():
                                 <div class="permit-card" data-permit-id="{permit.id}">
                                     <div class="permit-header">
                                         <span class="permit-county">{permit.county}</span>
-                                        <span class="permit-date" data-utc-date="{permit.date_issued.isoformat()}">{permit.date_issued.strftime('%m/%d/%Y')}</span>
+                                        <span class="permit-date">{permit.date_issued.strftime('%m/%d/%Y')}</span>
                                     </div>
                                     <div class="permit-info">
                                         <h3 class="truncate-2">{permit.lease_name}</h3>
@@ -2449,56 +2440,14 @@ def generate_html():
                 }})
                 .then(response => response.json())
                 .then(data => {{
-                    if (response.ok) {{
-                        alert('Update Started! Check back in 30 seconds.');
-                        setTimeout(() => {{
-                            location.reload();
-                        }}, 35000);
-                    }} else {{
-                        alert(data.error || 'Error starting update');
-                        document.getElementById('scraping-status').textContent = 'Error';
-                        // Show force update button if outside business hours
-                        if (data.business_hours && !data.business_hours.is_business_hours) {{
-                            document.getElementById('forceUpdateBtn').style.display = 'inline-flex';
-                        }}
-                    }}
-                }})
-                .catch(error => {{
-                    console.error('Error:', error);
-                    alert('Error starting update process');
-                    document.getElementById('scraping-status').textContent = 'Error';
-                }});
-            }}
-            
-            function forceScraping() {{
-                if (document.getElementById('scraping-status').textContent === 'Updating...') {{
-                    alert('Update is already in progress!');
-                    return;
-                }}
-                
-                if (!confirm('Force update outside business hours? This will run regardless of the schedule.')) {{
-                    return;
-                }}
-                
-                document.getElementById('scraping-status').textContent = 'Updating...';
-                
-                fetch('/api/scrape', {{
-                    method: 'POST',
-                    headers: {{
-                        'Content-Type': 'application/json',
-                    }},
-                    body: JSON.stringify({{ force: true }})
-                }})
-                .then(response => response.json())
-                .then(data => {{
-                    alert('Force Update Started! Check back in 30 seconds.');
+                    alert('Update Started! Check back in 30 seconds.');
                     setTimeout(() => {{
                         location.reload();
                     }}, 35000);
                 }})
                 .catch(error => {{
                     console.error('Error:', error);
-                    alert('Error starting force update');
+                    alert('Error starting update process');
                     document.getElementById('scraping-status').textContent = 'Error';
                 }});
             }}
@@ -2578,44 +2527,8 @@ def generate_html():
                 .then(response => response.json())
                 .then(data => {{
                     document.getElementById('scraping-status').textContent = data.is_running ? 'Updating...' : 'Completed';
-                    
-                    // Convert last run time to Central Time
-                    if (data.last_run && data.last_run !== 'Never') {{
-                        try {{
-                            const utcDate = new Date(data.last_run);
-                            const centralTime = utcDate.toLocaleString("en-US", {{
-                                timeZone: "America/Chicago",
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: true
-                            }});
-                            document.getElementById('last-run').textContent = centralTime;
-                        }} catch (e) {{
-                            document.getElementById('last-run').textContent = data.last_run || 'Never';
-                        }}
-                    }} else {{
-                        document.getElementById('last-run').textContent = 'Never';
-                    }}
-                    
+                    document.getElementById('last-run').textContent = data.last_run || 'Never';
                     document.getElementById('last-count').textContent = data.last_count + ' permits';
-                    
-                    // Update business hours status
-                    if (data.business_hours) {{
-                        const businessHoursText = document.getElementById('business-hours-text');
-                        if (data.business_hours.is_business_hours) {{
-                            businessHoursText.textContent = '✅ ' + data.business_hours.reason;
-                            businessHoursText.style.color = '#10b981';
-                            document.getElementById('forceUpdateBtn').style.display = 'none';
-                        }} else {{
-                            businessHoursText.textContent = '❌ ' + data.business_hours.reason;
-                            businessHoursText.style.color = '#ef4444';
-                            document.getElementById('forceUpdateBtn').style.display = 'inline-flex';
-                        }}
-                    }}
                 }})
                 .catch(error => console.error('Error updating status:', error));
             }}, 10000);
@@ -2634,48 +2547,6 @@ def generate_html():
                     body.setAttribute('data-theme', 'dark');
                     themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
                     localStorage.setItem('theme', 'dark');
-                }}
-            }}
-            
-            // Timezone conversion functions
-            function convertUTCToCentral(utcDateString) {{
-                const utcDate = new Date(utcDateString);
-                const centralDate = new Date(utcDate.toLocaleString("en-US", {{timeZone: "America/Chicago"}}));
-                return centralDate;
-            }}
-            
-            function formatCentralTime(date) {{
-                return date.toLocaleString("en-US", {{
-                    timeZone: "America/Chicago",
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: true
-                }});
-            }}
-            
-            function updateAllTimesToCentral() {{
-                // Update permit dates
-                document.querySelectorAll('.permit-date[data-utc-date]').forEach(element => {{
-                    const utcDate = element.getAttribute('data-utc-date');
-                    if (utcDate) {{
-                        const centralDate = convertUTCToCentral(utcDate);
-                        element.textContent = centralDate.toLocaleDateString("en-US", {{
-                            timeZone: "America/Chicago",
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                        }});
-                    }}
-                }});
-                
-                // Update status times
-                const lastRunElement = document.getElementById('last-run');
-                if (lastRunElement && lastRunElement.textContent !== 'Never') {{
-                    // This will be updated by the status refresh function
                 }}
             }}
             
@@ -2702,9 +2573,6 @@ def generate_html():
                 
                 // Initialize push notifications
                 initializePushNotifications();
-                
-                // Convert all times to Central Time
-                updateAllTimesToCentral();
             }});
             
             function updateMonitoringCount() {{
@@ -3064,20 +2932,6 @@ def api_scrape():
     if scraping_status['is_running']:
         return jsonify({'error': 'Update already in progress'}), 400
     
-    # Check if it's business hours (with manual override option)
-    data = request.get_json() or {}
-    force_scrape = data.get('force', False)
-    
-    if not force_scrape:
-        is_business, reason = is_business_hours()
-        if not is_business:
-            return jsonify({
-                'error': f'Scraping only allowed during business hours (8 AM - 5 PM CST, Mon-Fri). {reason}',
-                'business_hours': BUSINESS_HOURS,
-                'current_status': reason,
-                'force_option': 'Add "force": true to override business hours restriction'
-            }), 400
-    
     # Start scraping in background thread
     thread = threading.Thread(target=scrape_rrc_permits)
     thread.daemon = True
@@ -3087,15 +2941,7 @@ def api_scrape():
 
 @app.route('/api/status')
 def api_status():
-    # Add business hours information to status
-    is_business, reason = is_business_hours()
-    status_data = scraping_status.copy()
-    status_data['business_hours'] = {
-        'is_business_hours': is_business,
-        'reason': reason,
-        'schedule': BUSINESS_HOURS
-    }
-    return jsonify(status_data)
+    return jsonify(scraping_status)
 
 @app.route('/api/permits')
 def api_permits():
@@ -3417,65 +3263,94 @@ def debug_sw():
 def serve_icon_512():
     """Serve the main app icon"""
     print("DEBUG: Serving icon-512.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(512)
+    try:
+        # Try to serve from static directory first
+        resp = send_from_directory('static', 'icon-512.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving icon-512.png: {e}")
+        # Fallback: generate icon programmatically
+        return generate_icon(512)
 
 @app.route('/static/icon-192.png')
 def serve_icon_192():
     """Serve the 192x192 icon"""
     print("DEBUG: Serving icon-192.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(192)
+    try:
+        resp = send_from_directory('static', 'icon-192.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving icon-192.png: {e}")
+        return generate_icon(192)
 
 @app.route('/static/apple-touch-icon.png')
 def serve_apple_touch_icon():
     """Serve the Apple touch icon"""
     print("DEBUG: Serving apple-touch-icon.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(180)
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon.png: {e}")
+        return generate_icon(180)
 
 @app.route('/static/apple-touch-icon-120x120.png')
 def serve_apple_touch_icon_120():
     """Serve the Apple touch icon 120x120"""
     print("DEBUG: Serving apple-touch-icon-120x120.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(120)
+    try:
+        resp = send_from_directory('static', 'apple-touch-icon-120x120.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving apple-touch-icon-120x120.png: {e}")
+        return generate_icon(120)
 
 @app.route('/static/favicon-32x32.png')
 def serve_favicon_32():
     """Serve the 32x32 favicon"""
     print("DEBUG: Serving favicon-32x32.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(32)
+    try:
+        resp = send_from_directory('static', 'favicon-32x32.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon-32x32.png: {e}")
+        return generate_icon(32)
 
 @app.route('/static/favicon-16x16.png')
 def serve_favicon_16():
     """Serve the 16x16 favicon"""
     print("DEBUG: Serving favicon-16x16.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(16)
+    try:
+        resp = send_from_directory('static', 'favicon-16x16.png', mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon-16x16.png: {e}")
+        return generate_icon(16)
 
 @app.route('/favicon.ico')
 def favicon():
     """Serve favicon"""
     print("DEBUG: Serving favicon.ico")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(16)
-
-@app.route('/static/new_permits.png')
-def serve_new_permits_icon():
-    """Serve the new permits icon"""
-    print("DEBUG: Serving new_permits.png")
-    # Generate icon programmatically (works in all environments)
-    return generate_icon(512)
+    try:
+        resp = send_from_directory('static', 'favicon.ico', mimetype='image/x-icon')
+        resp.headers['Cache-Control'] = 'no-cache'
+        return resp
+    except Exception as e:
+        print(f"DEBUG: Error serving favicon: {e}")
+        return "Favicon not found", 404
 
 def generate_icon(size):
     """Generate a simple icon programmatically"""
     try:
-        # Try to import PIL with proper error handling
-        # Note: PIL import is wrapped in try/except to handle cases where Pillow is not installed
+        # Try to import PIL, but don't fail if it's not available
         try:
-            from PIL import Image, ImageDraw, ImageFont  # type: ignore
+            from PIL import Image, ImageDraw, ImageFont
             import io
             
             # Create a new image with a dark background
@@ -3519,9 +3394,9 @@ def generate_icon(size):
             resp.headers['Cache-Control'] = 'no-cache'
             return resp
             
-        except ImportError as pil_error:
-            print(f"DEBUG: PIL not available: {pil_error}")
-            # Fallback to base64 icon generation
+        except ImportError:
+            print("DEBUG: PIL not available, using fallback icon generation")
+            # PIL not available, use fallback
             return generate_base64_icon(size)
         
     except Exception as e:
@@ -3699,67 +3574,15 @@ def export_csv():
         download_name=f'rrc_permits_{datetime.now().strftime("%Y%m%d")}{filename_suffix}.csv'
     )
 
-# Business hours configuration
-BUSINESS_HOURS = {
-    'start_hour': 8,    # 8 AM CST
-    'end_hour': 17,     # 5 PM CST
-    'timezone': 'America/Chicago',
-    'weekdays_only': True  # Monday through Friday
-}
-
-def is_business_hours():
-    """Check if current time is within business hours (8 AM - 5 PM CST, Mon-Fri)"""
-    try:
-        import pytz
-        from datetime import datetime
-        
-        # Get current time in Central Time
-        central_tz = pytz.timezone(BUSINESS_HOURS['timezone'])
-        now_central = datetime.now(central_tz)
-        
-        # Check if it's a weekday (Monday=0, Sunday=6)
-        if BUSINESS_HOURS['weekdays_only'] and now_central.weekday() >= 5:  # Saturday=5, Sunday=6
-            return False, f"Weekend detected: {now_central.strftime('%A')}"
-        
-        # Check if it's within business hours
-        current_hour = now_central.hour
-        if BUSINESS_HOURS['start_hour'] <= current_hour < BUSINESS_HOURS['end_hour']:
-            return True, f"Business hours: {now_central.strftime('%A %I:%M %p %Z')}"
-        else:
-            return False, f"Outside business hours: {now_central.strftime('%A %I:%M %p %Z')}"
-            
-    except ImportError:
-        # Fallback if pytz is not available - use UTC and approximate CST
-        now_utc = datetime.utcnow()
-        # Approximate CST (UTC-6) or CDT (UTC-5) - assume CST for simplicity
-        cst_hour = (now_utc.hour - 6) % 24
-        
-        # Check if it's a weekday (Monday=0, Sunday=6)
-        if BUSINESS_HOURS['weekdays_only'] and now_utc.weekday() >= 5:
-            return False, f"Weekend detected (UTC fallback): {now_utc.strftime('%A')}"
-        
-        # Check if it's within business hours
-        if BUSINESS_HOURS['start_hour'] <= cst_hour < BUSINESS_HOURS['end_hour']:
-            return True, f"Business hours (UTC fallback): {now_utc.strftime('%A %H:%M UTC')}"
-        else:
-            return False, f"Outside business hours (UTC fallback): {now_utc.strftime('%A %H:%M UTC')}"
-
 # Automatic scraping scheduler
 def start_scraping_scheduler():
-    """Start the automatic scraping scheduler with business hours check"""
+    """Start the automatic scraping scheduler"""
     def scrape_periodically():
         while True:
             try:
-                # Check if it's business hours
-                is_business, reason = is_business_hours()
-                
-                if is_business:
-                    print(f"Starting automatic scrape at {datetime.now()} - {reason}")
-                    scrape_rrc_permits()
-                    print(f"Automatic scrape completed at {datetime.now()}")
-                else:
-                    print(f"Skipping scrape at {datetime.now()} - {reason}")
-                
+                print(f"Starting automatic scrape at {datetime.now()}")
+                scrape_rrc_permits()
+                print(f"Automatic scrape completed at {datetime.now()}")
             except Exception as e:
                 print(f"Error in automatic scrape: {e}")
                 import traceback
@@ -3772,7 +3595,7 @@ def start_scraping_scheduler():
     scheduler_thread = threading.Thread(target=scrape_periodically)
     scheduler_thread.daemon = True
     scheduler_thread.start()
-    print(f"Automatic scraping scheduler started (every 5 minutes, business hours only: {BUSINESS_HOURS['start_hour']} AM - {BUSINESS_HOURS['end_hour']} PM CST, Mon-Fri)")
+    print("Automatic scraping scheduler started (every 5 minutes)")
 
 # Initialize database when the module is imported (works with Gunicorn)
 with app.app_context():
