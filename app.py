@@ -2023,7 +2023,7 @@ def generate_html():
                 <div class="status-item">
                     <span class="status-label">Last Run:</span>
                     <span class="status-value" id="last-run">
-                        {scraping_status['last_run'] or 'Never'}
+                        {scraping_status['last_run'].strftime('%m/%d/%Y %I:%M:%S %p') if scraping_status['last_run'] else 'Never'}
                     </span>
                 </div>
                 <div class="status-item">
@@ -2527,7 +2527,24 @@ def generate_html():
                 .then(response => response.json())
                 .then(data => {{
                     document.getElementById('scraping-status').textContent = data.is_running ? 'Updating...' : 'Completed';
-                    document.getElementById('last-run').textContent = data.last_run || 'Never';
+                    
+                    // Format the last run time properly
+                    if (data.last_run) {{
+                        const lastRunDate = new Date(data.last_run);
+                        const formattedTime = lastRunDate.toLocaleString('en-US', {{
+                            month: '2-digit',
+                            day: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: true
+                        }});
+                        document.getElementById('last-run').textContent = formattedTime;
+                    }} else {{
+                        document.getElementById('last-run').textContent = 'Never';
+                    }}
+                    
                     document.getElementById('last-count').textContent = data.last_count + ' permits';
                 }})
                 .catch(error => console.error('Error updating status:', error));
@@ -2941,7 +2958,11 @@ def api_scrape():
 
 @app.route('/api/status')
 def api_status():
-    return jsonify(scraping_status)
+    # Format the datetime for JSON serialization
+    status_copy = scraping_status.copy()
+    if status_copy['last_run']:
+        status_copy['last_run'] = status_copy['last_run'].isoformat()
+    return jsonify(status_copy)
 
 @app.route('/api/permits')
 def api_permits():
@@ -3348,9 +3369,10 @@ def favicon():
 def generate_icon(size):
     """Generate a simple icon programmatically"""
     try:
-        # Try to import PIL, but don't fail if it's not available
+        # Try to import PIL (Pillow), but don't fail if it's not available
         try:
-            from PIL import Image, ImageDraw, ImageFont
+            # PIL is provided by the Pillow package
+            from PIL import Image, ImageDraw, ImageFont  # type: ignore
             import io
             
             # Create a new image with a dark background
@@ -3394,8 +3416,8 @@ def generate_icon(size):
             resp.headers['Cache-Control'] = 'no-cache'
             return resp
             
-        except ImportError:
-            print("DEBUG: PIL not available, using fallback icon generation")
+        except ImportError as pil_error:
+            print(f"DEBUG: PIL not available ({pil_error}), using fallback icon generation")
             # PIL not available, use fallback
             return generate_base64_icon(size)
         
