@@ -1962,8 +1962,11 @@ def generate_html():
                 
                 <!-- 3) Update Permits -->
                 <div class="control-row">
-                    <button class="btn btn-success" onclick="startScraping()">
+                    <button class="btn btn-success" onclick="startScraping()" id="updateBtn">
                         🔄 Update Permits
+                    </button>
+                    <button class="btn btn-warning" onclick="forceScraping()" id="forceUpdateBtn" style="display: none;">
+                        ⚡ Force Update (Outside Hours)
                     </button>
                 </div>
                 
@@ -2045,9 +2048,15 @@ def generate_html():
                     </span>
                 </div>
                 <div class="status-item">
-                    <span class="status-label">Manage Hidden:</span>
+                    <span class="status-label">Business Hours:</span>
+                    <span class="status-value" id="business-hours-status">
+                        <span id="business-hours-text">Loading...</span>
+                    </span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Schedule:</span>
                     <span class="status-value">
-                        <a href="#" onclick="openManageHidden()" style="color: #667eea; text-decoration: none;">Restore dismissed items</a>
+                        8 AM - 5 PM CST, Monday - Friday
                     </span>
                 </div>
             </div>
@@ -2440,14 +2449,56 @@ def generate_html():
                 }})
                 .then(response => response.json())
                 .then(data => {{
-                    alert('Update Started! Check back in 30 seconds.');
+                    if (response.ok) {{
+                        alert('Update Started! Check back in 30 seconds.');
+                        setTimeout(() => {{
+                            location.reload();
+                        }}, 35000);
+                    }} else {{
+                        alert(data.error || 'Error starting update');
+                        document.getElementById('scraping-status').textContent = 'Error';
+                        // Show force update button if outside business hours
+                        if (data.business_hours && !data.business_hours.is_business_hours) {{
+                            document.getElementById('forceUpdateBtn').style.display = 'inline-flex';
+                        }}
+                    }}
+                }})
+                .catch(error => {{
+                    console.error('Error:', error);
+                    alert('Error starting update process');
+                    document.getElementById('scraping-status').textContent = 'Error';
+                }});
+            }}
+            
+            function forceScraping() {{
+                if (document.getElementById('scraping-status').textContent === 'Updating...') {{
+                    alert('Update is already in progress!');
+                    return;
+                }}
+                
+                if (!confirm('Force update outside business hours? This will run regardless of the schedule.')) {{
+                    return;
+                }}
+                
+                document.getElementById('scraping-status').textContent = 'Updating...';
+                
+                fetch('/api/scrape', {{
+                    method: 'POST',
+                    headers: {{
+                        'Content-Type': 'application/json',
+                    }},
+                    body: JSON.stringify({{ force: true }})
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    alert('Force Update Started! Check back in 30 seconds.');
                     setTimeout(() => {{
                         location.reload();
                     }}, 35000);
                 }})
                 .catch(error => {{
                     console.error('Error:', error);
-                    alert('Error starting update process');
+                    alert('Error starting force update');
                     document.getElementById('scraping-status').textContent = 'Error';
                 }});
             }}
@@ -2551,6 +2602,20 @@ def generate_html():
                     }}
                     
                     document.getElementById('last-count').textContent = data.last_count + ' permits';
+                    
+                    // Update business hours status
+                    if (data.business_hours) {{
+                        const businessHoursText = document.getElementById('business-hours-text');
+                        if (data.business_hours.is_business_hours) {{
+                            businessHoursText.textContent = '✅ ' + data.business_hours.reason;
+                            businessHoursText.style.color = '#10b981';
+                            document.getElementById('forceUpdateBtn').style.display = 'none';
+                        }} else {{
+                            businessHoursText.textContent = '❌ ' + data.business_hours.reason;
+                            businessHoursText.style.color = '#ef4444';
+                            document.getElementById('forceUpdateBtn').style.display = 'inline-flex';
+                        }}
+                    }}
                 }})
                 .catch(error => console.error('Error updating status:', error));
             }}, 10000);
@@ -2999,6 +3064,20 @@ def api_scrape():
     if scraping_status['is_running']:
         return jsonify({'error': 'Update already in progress'}), 400
     
+    # Check if it's business hours (with manual override option)
+    data = request.get_json() or {}
+    force_scrape = data.get('force', False)
+    
+    if not force_scrape:
+        is_business, reason = is_business_hours()
+        if not is_business:
+            return jsonify({
+                'error': f'Scraping only allowed during business hours (8 AM - 5 PM CST, Mon-Fri). {reason}',
+                'business_hours': BUSINESS_HOURS,
+                'current_status': reason,
+                'force_option': 'Add "force": true to override business hours restriction'
+            }), 400
+    
     # Start scraping in background thread
     thread = threading.Thread(target=scrape_rrc_permits)
     thread.daemon = True
@@ -3008,7 +3087,15 @@ def api_scrape():
 
 @app.route('/api/status')
 def api_status():
-    return jsonify(scraping_status)
+    # Add business hours information to status
+    is_business, reason = is_business_hours()
+    status_data = scraping_status.copy()
+    status_data['business_hours'] = {
+        'is_business_hours': is_business,
+        'reason': reason,
+        'schedule': BUSINESS_HOURS
+    }
+    return jsonify(status_data)
 
 @app.route('/api/permits')
 def api_permits():
@@ -3612,15 +3699,67 @@ def export_csv():
         download_name=f'rrc_permits_{datetime.now().strftime("%Y%m%d")}{filename_suffix}.csv'
     )
 
+# Business hours configuration
+BUSINESS_HOURS = {
+    'start_hour': 8,    # 8 AM CST
+    'end_hour': 17,     # 5 PM CST
+    'timezone': 'America/Chicago',
+    'weekdays_only': True  # Monday through Friday
+}
+
+def is_business_hours():
+    """Check if current time is within business hours (8 AM - 5 PM CST, Mon-Fri)"""
+    try:
+        import pytz
+        from datetime import datetime
+        
+        # Get current time in Central Time
+        central_tz = pytz.timezone(BUSINESS_HOURS['timezone'])
+        now_central = datetime.now(central_tz)
+        
+        # Check if it's a weekday (Monday=0, Sunday=6)
+        if BUSINESS_HOURS['weekdays_only'] and now_central.weekday() >= 5:  # Saturday=5, Sunday=6
+            return False, f"Weekend detected: {now_central.strftime('%A')}"
+        
+        # Check if it's within business hours
+        current_hour = now_central.hour
+        if BUSINESS_HOURS['start_hour'] <= current_hour < BUSINESS_HOURS['end_hour']:
+            return True, f"Business hours: {now_central.strftime('%A %I:%M %p %Z')}"
+        else:
+            return False, f"Outside business hours: {now_central.strftime('%A %I:%M %p %Z')}"
+            
+    except ImportError:
+        # Fallback if pytz is not available - use UTC and approximate CST
+        now_utc = datetime.utcnow()
+        # Approximate CST (UTC-6) or CDT (UTC-5) - assume CST for simplicity
+        cst_hour = (now_utc.hour - 6) % 24
+        
+        # Check if it's a weekday (Monday=0, Sunday=6)
+        if BUSINESS_HOURS['weekdays_only'] and now_utc.weekday() >= 5:
+            return False, f"Weekend detected (UTC fallback): {now_utc.strftime('%A')}"
+        
+        # Check if it's within business hours
+        if BUSINESS_HOURS['start_hour'] <= cst_hour < BUSINESS_HOURS['end_hour']:
+            return True, f"Business hours (UTC fallback): {now_utc.strftime('%A %H:%M UTC')}"
+        else:
+            return False, f"Outside business hours (UTC fallback): {now_utc.strftime('%A %H:%M UTC')}"
+
 # Automatic scraping scheduler
 def start_scraping_scheduler():
-    """Start the automatic scraping scheduler"""
+    """Start the automatic scraping scheduler with business hours check"""
     def scrape_periodically():
         while True:
             try:
-                print(f"Starting automatic scrape at {datetime.now()}")
-                scrape_rrc_permits()
-                print(f"Automatic scrape completed at {datetime.now()}")
+                # Check if it's business hours
+                is_business, reason = is_business_hours()
+                
+                if is_business:
+                    print(f"Starting automatic scrape at {datetime.now()} - {reason}")
+                    scrape_rrc_permits()
+                    print(f"Automatic scrape completed at {datetime.now()}")
+                else:
+                    print(f"Skipping scrape at {datetime.now()} - {reason}")
+                
             except Exception as e:
                 print(f"Error in automatic scrape: {e}")
                 import traceback
@@ -3633,7 +3772,7 @@ def start_scraping_scheduler():
     scheduler_thread = threading.Thread(target=scrape_periodically)
     scheduler_thread.daemon = True
     scheduler_thread.start()
-    print("Automatic scraping scheduler started (every 5 minutes)")
+    print(f"Automatic scraping scheduler started (every 5 minutes, business hours only: {BUSINESS_HOURS['start_hour']} AM - {BUSINESS_HOURS['end_hour']} PM CST, Mon-Fri)")
 
 # Initialize database when the module is imported (works with Gunicorn)
 with app.app_context():
