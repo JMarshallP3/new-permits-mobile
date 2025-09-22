@@ -2070,7 +2070,7 @@ def generate_html():
                                 <div class="permit-card" data-permit-id="{permit.id}">
                                     <div class="permit-header">
                                         <span class="permit-county">{permit.county}</span>
-                                        <span class="permit-date">{permit.date_issued.strftime('%m/%d/%Y')}</span>
+                                        <span class="permit-date" data-utc-date="{permit.date_issued.isoformat()}">{permit.date_issued.strftime('%m/%d/%Y')}</span>
                                     </div>
                                     <div class="permit-info">
                                         <h3 class="truncate-2">{permit.lease_name}</h3>
@@ -2527,7 +2527,29 @@ def generate_html():
                 .then(response => response.json())
                 .then(data => {{
                     document.getElementById('scraping-status').textContent = data.is_running ? 'Updating...' : 'Completed';
-                    document.getElementById('last-run').textContent = data.last_run || 'Never';
+                    
+                    // Convert last run time to Central Time
+                    if (data.last_run && data.last_run !== 'Never') {{
+                        try {{
+                            const utcDate = new Date(data.last_run);
+                            const centralTime = utcDate.toLocaleString("en-US", {{
+                                timeZone: "America/Chicago",
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            }});
+                            document.getElementById('last-run').textContent = centralTime;
+                        }} catch (e) {{
+                            document.getElementById('last-run').textContent = data.last_run || 'Never';
+                        }}
+                    }} else {{
+                        document.getElementById('last-run').textContent = 'Never';
+                    }}
+                    
                     document.getElementById('last-count').textContent = data.last_count + ' permits';
                 }})
                 .catch(error => console.error('Error updating status:', error));
@@ -2547,6 +2569,48 @@ def generate_html():
                     body.setAttribute('data-theme', 'dark');
                     themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
                     localStorage.setItem('theme', 'dark');
+                }}
+            }}
+            
+            // Timezone conversion functions
+            function convertUTCToCentral(utcDateString) {{
+                const utcDate = new Date(utcDateString);
+                const centralDate = new Date(utcDate.toLocaleString("en-US", {{timeZone: "America/Chicago"}}));
+                return centralDate;
+            }}
+            
+            function formatCentralTime(date) {{
+                return date.toLocaleString("en-US", {{
+                    timeZone: "America/Chicago",
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                }});
+            }}
+            
+            function updateAllTimesToCentral() {{
+                // Update permit dates
+                document.querySelectorAll('.permit-date[data-utc-date]').forEach(element => {{
+                    const utcDate = element.getAttribute('data-utc-date');
+                    if (utcDate) {{
+                        const centralDate = convertUTCToCentral(utcDate);
+                        element.textContent = centralDate.toLocaleDateString("en-US", {{
+                            timeZone: "America/Chicago",
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit'
+                        }});
+                    }}
+                }});
+                
+                // Update status times
+                const lastRunElement = document.getElementById('last-run');
+                if (lastRunElement && lastRunElement.textContent !== 'Never') {{
+                    // This will be updated by the status refresh function
                 }}
             }}
             
@@ -2573,6 +2637,9 @@ def generate_html():
                 
                 // Initialize push notifications
                 initializePushNotifications();
+                
+                // Convert all times to Central Time
+                updateAllTimesToCentral();
             }});
             
             function updateMonitoringCount() {{
@@ -3307,6 +3374,13 @@ def favicon():
     print("DEBUG: Serving favicon.ico")
     # Generate icon programmatically (works in all environments)
     return generate_icon(16)
+
+@app.route('/static/new_permits.png')
+def serve_new_permits_icon():
+    """Serve the new permits icon"""
+    print("DEBUG: Serving new_permits.png")
+    # Generate icon programmatically (works in all environments)
+    return generate_icon(512)
 
 def generate_icon(size):
     """Generate a simple icon programmatically"""
