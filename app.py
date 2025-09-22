@@ -11,6 +11,19 @@ import io
 import json
 import sqlite3
 from urllib.parse import urljoin
+# Optional timezone support
+try:
+    import pytz  # type: ignore
+    PYTZ_AVAILABLE = True
+    print("✅ pytz imported successfully")
+except ImportError as e:
+    print(f"❌ Warning: pytz not available. Timezone support disabled. Error: {e}")
+    PYTZ_AVAILABLE = False
+    # Create a fallback timezone class
+    class FallbackTimezone:
+        def timezone(self, name):
+            return None
+    pytz = FallbackTimezone()  # type: ignore
 # Optional push notification imports
 try:
     from pywebpush import webpush, WebPushException
@@ -118,6 +131,13 @@ scraping_status = {
     'last_count': 0,
     'error': None
 }
+
+# Texas timezone for RRC scraping
+if PYTZ_AVAILABLE:
+    TEXAS_TZ = pytz.timezone('America/Chicago')
+else:
+    # Fallback to UTC if pytz is not available
+    TEXAS_TZ = None
 
 # Push notification configuration
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
@@ -275,7 +295,8 @@ def send_notifications_for_new_permits(new_permits):
             
             # Check if permit was already seen (with 24h TTL)
             seen_permit = SeenPermit.query.filter_by(permit_no=permit_key).first()
-            if seen_permit and seen_permit.expires_at > datetime.utcnow():
+            current_time = datetime.now(TEXAS_TZ) if TEXAS_TZ else datetime.utcnow()
+            if seen_permit and seen_permit.expires_at > current_time:
                 print(f"Skipping duplicate notification for permit {permit_key}")
                 continue
             
@@ -283,11 +304,11 @@ def send_notifications_for_new_permits(new_permits):
             if not seen_permit:
                 seen_permit = SeenPermit(
                     permit_no=permit_key,
-                    expires_at=datetime.utcnow() + timedelta(hours=24)
+                    expires_at=current_time + timedelta(hours=24)
                 )
                 db.session.add(seen_permit)
             else:
-                seen_permit.expires_at = datetime.utcnow() + timedelta(hours=24)
+                seen_permit.expires_at = current_time + timedelta(hours=24)
             
             permit_county = permit.county
             
@@ -419,15 +440,20 @@ def scrape_rrc_permits():
     
     scraping_status['is_running'] = True
     scraping_status['error'] = None
-    scraping_status['last_run'] = datetime.now()
+    scraping_status['last_run'] = datetime.now(TEXAS_TZ)
     
     try:
         print("Starting RRC permit scraping...")
         
         with app.app_context():
-            # Get today's date
-            today = date.today()
+            # Get today's date in Texas timezone
+            if TEXAS_TZ:
+                texas_now = datetime.now(TEXAS_TZ)
+            else:
+                texas_now = datetime.utcnow()
+            today = texas_now.date()
             date_str = today.strftime('%m/%d/%Y')
+            print(f"Scraping for Texas date: {date_str} (Texas time: {texas_now.strftime('%I:%M:%S %p')})")
             
             # Try Selenium approach first for proper form interaction
             try:
@@ -2023,7 +2049,7 @@ def generate_html():
                 <div class="status-item">
                     <span class="status-label">Last Run:</span>
                     <span class="status-value" id="last-run">
-                        {scraping_status['last_run'].strftime('%m/%d/%Y %I:%M:%S %p') if scraping_status['last_run'] else 'Never'}
+                        {scraping_status['last_run'].strftime('%m/%d/%Y %I:%M:%S %p %Z') if scraping_status['last_run'] else 'Never'}
                     </span>
                 </div>
                 <div class="status-item">
@@ -2528,19 +2554,9 @@ def generate_html():
                 .then(data => {{
                     document.getElementById('scraping-status').textContent = data.is_running ? 'Updating...' : 'Completed';
                     
-                    // Format the last run time properly
+                    // Format the last run time properly (already formatted on server with timezone)
                     if (data.last_run) {{
-                        const lastRunDate = new Date(data.last_run);
-                        const formattedTime = lastRunDate.toLocaleString('en-US', {{
-                            month: '2-digit',
-                            day: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: true
-                        }});
-                        document.getElementById('last-run').textContent = formattedTime;
+                        document.getElementById('last-run').textContent = data.last_run;
                     }} else {{
                         document.getElementById('last-run').textContent = 'Never';
                     }}
@@ -2961,7 +2977,8 @@ def api_status():
     # Format the datetime for JSON serialization
     status_copy = scraping_status.copy()
     if status_copy['last_run']:
-        status_copy['last_run'] = status_copy['last_run'].isoformat()
+        # Format with timezone for display
+        status_copy['last_run'] = status_copy['last_run'].strftime('%m/%d/%Y %I:%M:%S %p %Z')
     return jsonify(status_copy)
 
 @app.route('/api/permits')
